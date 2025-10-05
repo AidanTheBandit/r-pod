@@ -30,6 +30,9 @@ env/
 .env
 .env.local
 
+# YouTube Music authentication
+headers_auth.json
+
 # IDE
 .vscode/
 .idea/

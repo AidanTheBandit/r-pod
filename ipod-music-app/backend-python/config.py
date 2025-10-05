@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     # YouTube Music - Compatible with existing .env
     youtube_music_cookie: Optional[str] = None
     youtube_music_profile: Optional[str] = None  # Profile selection (unused - cookie handles it)
+    youtube_music_brand_account_id: Optional[str] = None  # Brand account ID for @AidanDSMusic
     youtube_client_id: Optional[str] = None
     youtube_client_secret: Optional[str] = None
     youtube_redirect_uri: Optional[str] = None

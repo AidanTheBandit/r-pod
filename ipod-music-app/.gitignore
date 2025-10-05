@@ -28,5 +28,8 @@ dist-ssr
 .env.local
 .env.production
 
+# YouTube Music authentication
+headers_auth.json
+
 # Build
 build/

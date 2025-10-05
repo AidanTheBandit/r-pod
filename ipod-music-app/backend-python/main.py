@@ -61,6 +61,8 @@ async def lifespan(app: FastAPI):
     logger.info("Environment:")
     logger.info(f"  SERVER_PASSWORD: {'✓ Set' if settings.server_password else '✗ Not set'}")
     logger.info(f"  YOUTUBE_MUSIC_COOKIE: {'✓ Set' if settings.youtube_music_cookie else '✗ Not set'}")
+    logger.info(f"  YOUTUBE_MUSIC_PROFILE: {settings.youtube_music_profile or 'Not set'}")
+    logger.info(f"  YOUTUBE_MUSIC_BRAND_ACCOUNT_ID: {'✓ Set' if settings.youtube_music_brand_account_id else '✗ Not set'}")
     logger.info(f"  SPOTIFY_CLIENT_ID: {'✓ Set' if settings.spotify_client_id else '✗ Not set'}")
     logger.info(f"  CACHE_TTL: {settings.cache_ttl}s")
     logger.info(f"  CORS_ORIGINS: {settings.cors_origins}")
@@ -153,7 +155,8 @@ async def aggregate(session: Dict[str, Any], method: str, *args) -> List[Dict[st
         try:
             ytm = YouTubeMusicAggregator({
                 "cookie": settings.youtube_music_cookie,
-                "profile": settings.youtube_music_profile
+                "profile": settings.youtube_music_profile,
+                "brand_account_id": settings.youtube_music_brand_account_id
             })
             if await ytm.authenticate():
                 session["services"]["youtubeMusic"] = ytm
@@ -232,7 +235,8 @@ async def connect_service(
         if request.service == "youtubeMusic":
             credentials = request.credentials if request.credentials.get("cookie") else {
                 "cookie": settings.youtube_music_cookie,
-                "profile": request.credentials.get("profile", settings.youtube_music_profile)
+                "profile": request.credentials.get("profile", settings.youtube_music_profile),
+                "brand_account_id": settings.youtube_music_brand_account_id
             }
             
             if not credentials.get("cookie"):

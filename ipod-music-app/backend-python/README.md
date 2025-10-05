@@ -108,6 +108,31 @@ The YouTube Music cookie is required for authentication:
 
 **Note**: Keep your cookie secure and never commit it to version control.
 
+### YouTube Music Authentication Setup (Recommended)
+
+For the best experience with library access (your playlists, albums, artists), use the official ytmusicapi authentication:
+
+1. **Run the setup script**:
+   ```bash
+   # Option 1: Bash script
+   ./setup_ytm_auth.sh
+   
+   # Option 2: Python script
+   python setup_ytm_auth.py
+   ```
+
+2. **Follow the interactive prompts**:
+   - The script will guide you through the ytmusicapi setup process
+   - You'll need to copy request headers from YouTube Music in your browser
+   - This creates a `headers_auth.json` file with proper authentication
+
+3. **Restart the backend**:
+   ```bash
+   python main.py
+   ```
+
+The backend will automatically detect and use `headers_auth.json` for full library access.
+
 ### Multiple YouTube Music Profiles
 
 If you have multiple YouTube Music brand accounts:
