@@ -7,6 +7,7 @@ import { SpotifyAggregator } from './services/spotifyAggregator.js';
 import { YouTubeMusicAggregator } from './services/youtubeMusicAggregator.js';
 import { SubsonicAggregator } from './services/subsonicAggregator.js';
 import { JellyfinAggregator } from './services/jellyfinAggregator.js';
+import lavalinkService from './services/lavalinkService.js';
 
 dotenv.config();
 
@@ -137,6 +138,44 @@ async function logAvailableYouTubeProfiles() {
   }
 }
 
+// Auto-initialize YouTube Music if env cookie is available
+async function ensureYouTubeMusicConnected(session) {
+  if (session.services.youtubeMusic) {
+    console.log('[AutoConnect] YouTube Music already connected');
+    return true;
+  }
+
+  if (!process.env.YOUTUBE_MUSIC_COOKIE) {
+    console.log('[AutoConnect] No YOUTUBE_MUSIC_COOKIE in environment, skipping auto-connect');
+    return false;
+  }
+
+  try {
+    console.log('[AutoConnect] Auto-connecting YouTube Music from environment...');
+    
+    const profile = process.env.YOUTUBE_MUSIC_PROFILE || '0';
+    const credentials = {
+      cookie: process.env.YOUTUBE_MUSIC_COOKIE,
+      profile: profile
+    };
+
+    session.services.youtubeMusic = new YouTubeMusicAggregator(credentials);
+    const authSuccess = await session.services.youtubeMusic.authenticate();
+
+    if (!authSuccess) {
+      console.error('[AutoConnect] ✗ Auto-connect failed');
+      delete session.services.youtubeMusic;
+      return false;
+    }
+
+    console.log('[AutoConnect] ✓ YouTube Music auto-connected successfully with profile:', profile);
+    return true;
+  } catch (error) {
+    console.error('[AutoConnect] ✗ Error:', error.message);
+    return false;
+  }
+}
+
 app.get('/health', (req, res) => {
   const health = {
     status: 'ok',
@@ -189,7 +228,7 @@ app.post('/api/services/connect', authenticate, async (req, res) => {
         
         const ytmCredentials = credentials?.cookie ? credentials : {
           cookie: process.env.YOUTUBE_MUSIC_COOKIE,
-          profile: credentials?.profile || '1'
+          profile: credentials?.profile || process.env.YOUTUBE_MUSIC_PROFILE || '0'
         };
         
         console.log('[Connect] YouTube Music credentials:', {
@@ -342,7 +381,9 @@ app.get('/api/tracks', authenticate, async (req, res) => {
 
 app.get('/api/albums', authenticate, async (req, res) => {
   console.log('[API] GET /api/albums');
-  const { sessionId } = req.query;
+  const { sessionId, type = 'user' } = req.query;
+  
+  console.log('[API] Query params:', { sessionId, type });
   
   if (!sessionId) {
     console.error('[API] ✗ No sessionId provided');
@@ -350,7 +391,7 @@ app.get('/api/albums', authenticate, async (req, res) => {
   }
   
   const session = getSession(sessionId);
-  const albums = await aggregate(session, 'getAlbums');
+  const albums = await aggregate(session, 'getAlbums', type);
   
   console.log(`[API] ✓ Returning ${albums.length} albums`);
   res.json({ albums });
@@ -495,90 +536,124 @@ app.get('/api/profiles/:service', authenticate, async (req, res) => {
   }
 });
 
-// YouTube Music streaming proxy endpoint
-app.get('/api/stream/youtube/:videoId', authenticate, async (req, res) => {
+// YouTube Music streaming proxy endpoint (using Lavalink with YouTube fallback)
+app.get('/api/stream/youtube/:videoId', async (req, res) => {
+  // Check password from query param (for audio element) or header
+  const passwordFromQuery = req.query.password
+  const passwordFromHeader = req.headers['x-server-password']
+  
+  console.log('[Stream] Auth check:', {
+    hasQueryPassword: !!passwordFromQuery,
+    hasHeaderPassword: !!passwordFromHeader,
+    queryMatches: passwordFromQuery === process.env.SERVER_PASSWORD,
+    headerMatches: passwordFromHeader === process.env.SERVER_PASSWORD
+  });
+  
+  if (passwordFromQuery !== process.env.SERVER_PASSWORD && passwordFromHeader !== process.env.SERVER_PASSWORD) {
+    console.error('[Stream] ✗ Unauthorized access attempt');
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  
   const { videoId } = req.params;
   console.log(`[Stream] YouTube stream request for: ${videoId}`);
   
-  const cacheKey = `stream:${videoId}`;
-  
   try {
-    let streamUrl = cache.get(cacheKey);
-    
-    if (!streamUrl) {
-      console.log(`[Stream] Getting stream URL for ${videoId}...`);
-      const youtube = await getYouTubeClient();
+    // Try Lavalink first
+    if (lavalinkService.isConnected()) {
+      console.log('[Stream] Using Lavalink for streaming');
       
-      const info = await youtube.getInfo(videoId, 'YTMUSIC');
+      const cacheKey = `stream:${videoId}`;
+      let trackData = cache.get(cacheKey);
       
-      const format = info.chooseFormat({ 
-        type: 'audio',
-        quality: 'best'
-      });
-      
-      if (!format) {
-        console.error('[Stream] ✗ No audio format available');
-        return res.status(404).json({ error: 'No audio format available' });
+      if (!trackData) {
+        console.log(`[Stream] Getting track data from Lavalink for ${videoId}...`);
+        
+        try {
+          trackData = await lavalinkService.getStreamUrl(videoId);
+          
+          if (!trackData || !trackData.info || !trackData.info.uri) {
+            throw new Error('No stream URL returned from Lavalink');
+          }
+          
+          cache.set(cacheKey, trackData, 3600);
+          console.log('[Stream] ✓ Track data obtained from Lavalink:', trackData.info.title);
+        } catch (lavalinkError) {
+          console.error('[Stream] ✗ Lavalink failed:', lavalinkError.message);
+          throw new Error('Lavalink streaming failed');
+        }
+      } else {
+        console.log('[Stream] ✓ Using cached track data');
       }
       
-      streamUrl = format.decipher(youtube.session.player);
-      cache.set(cacheKey, streamUrl, 3600);
-      console.log('[Stream] ✓ Stream URL obtained and cached');
-    } else {
-      console.log('[Stream] ✓ Using cached stream URL');
-    }
-    
-    res.setHeader('Content-Type', 'audio/webm');
-    res.setHeader('Accept-Ranges', 'bytes');
-    res.setHeader('Cache-Control', 'public, max-age=3600');
-    
-    const range = req.headers.range;
-    
-    if (range) {
-      console.log('[Stream] Range request:', range);
-      const response = await fetch(streamUrl, { headers: { Range: range } });
+      const streamUrl = trackData.info.uri;
       
-      res.status(206);
-      res.setHeader('Content-Range', response.headers.get('content-range'));
-      res.setHeader('Content-Length', response.headers.get('content-length'));
+      res.setHeader('Content-Type', 'audio/webm');
+      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
       
-      const reader = response.body.getReader();
-      const pump = async () => {
-        const { done, value } = await reader.read();
-        if (done) {
-          res.end();
-          return;
-        }
-        if (!res.write(value)) {
-          await new Promise(resolve => res.once('drain', resolve));
-        }
-        return pump();
-      };
-      await pump();
-    } else {
-      console.log('[Stream] Full file request');
-      const response = await fetch(streamUrl);
+      const range = req.headers.range;
       
-      if (response.headers.get('content-length')) {
+      if (range) {
+        console.log('[Stream] Range request:', range);
+        const response = await fetch(streamUrl, { headers: { Range: range } });
+        
+        res.status(206);
+        res.setHeader('Content-Range', response.headers.get('content-range'));
         res.setHeader('Content-Length', response.headers.get('content-length'));
+        
+        const reader = response.body.getReader();
+        const pump = async () => {
+          const { done, value } = await reader.read();
+          if (done) {
+            res.end();
+            return;
+          }
+          if (!res.write(value)) {
+            await new Promise(resolve => res.once('drain', resolve));
+          }
+          return pump();
+        };
+        await pump();
+      } else {
+        console.log('[Stream] Full file request');
+        const response = await fetch(streamUrl);
+        
+        if (response.headers.get('content-length')) {
+          res.setHeader('Content-Length', response.headers.get('content-length'));
+        }
+        
+        const reader = response.body.getReader();
+        const pump = async () => {
+          const { done, value } = await reader.read();
+          if (done) {
+            res.end();
+            return;
+          }
+          if (!res.write(value)) {
+            await new Promise(resolve => res.once('drain', resolve));
+          }
+          return pump();
+        };
+        await pump();
       }
       
-      const reader = response.body.getReader();
-      const pump = async () => {
-        const { done, value } = await reader.read();
-        if (done) {
-          res.end();
-          return;
-        }
-        if (!res.write(value)) {
-          await new Promise(resolve => res.once('drain', resolve));
-        }
-        return pump();
-      };
-      await pump();
+      console.log('[Stream] ✓ Lavalink stream completed');
+      return;
     }
     
-    console.log('[Stream] ✓ Stream completed');
+    // Fallback: redirect to YouTube
+    console.log('[Stream] Streaming not available, redirecting to YouTube');
+    
+    const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    console.log(`[Stream] Redirecting to: ${youtubeUrl}`);
+    
+    // Return YouTube URL for frontend to handle
+    return res.json({
+      type: 'youtube_url',
+      url: youtubeUrl,
+      videoId: videoId,
+      message: 'Streaming not available, use YouTube player'
+    });
     
   } catch (error) {
     console.error('[Stream] ✗ Error:', {
@@ -617,6 +692,19 @@ app.listen(PORT, async () => {
   console.log('  ✓ Auto-connect YouTube Music from env cookie');
   console.log('  ✓ Session persistence');
   console.log('  ✓ Automatic session cleanup (1 hour)');
+  console.log('  ✓ Lavalink audio streaming');
+  console.log('='.repeat(60));
+  
+  // Connect to Lavalink (optional - will fallback to direct streaming)
+  console.log('Connecting to public Lavalink server...');
+  try {
+    await lavalinkService.connect();
+    console.log('✅ Lavalink connected successfully');
+  } catch (error) {
+    console.warn('⚠️  Lavalink connection failed, will use direct YouTube streaming as fallback:', error.message);
+    console.warn('⚠️  Audio streaming will still work via direct YouTube API');
+  }
+  
   console.log('='.repeat(60));
   console.log('Endpoints:');
   console.log('  GET  /health');

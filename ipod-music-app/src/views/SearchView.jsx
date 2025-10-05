@@ -14,10 +14,20 @@ function SearchView() {
   const { data: results = [], isLoading } = useSearch(searchQuery, 'track')
   
   // Format results for ListView
-  const formattedResults = results.map(result => ({
-    ...result,
-    subtitle: `${result.artist} • ${result.album}`,
-  }))
+  const formattedResults = results.map(result => {
+    let subtitle = ''
+    if (result.type === 'song') {
+      subtitle = `${result.artist} • ${result.album}`
+    } else if (result.type === 'album') {
+      subtitle = result.artist
+    } else if (result.type === 'artist') {
+      subtitle = 'Artist'
+    }
+    return {
+      ...result,
+      subtitle,
+    }
+  })
   
   const handleSearch = (e) => {
     const query = e.target.value
@@ -25,13 +35,18 @@ function SearchView() {
   }
   
   const handleResultClick = (result, index) => {
-    console.log('Search result clicked:', result.title)
+    console.log('Search result clicked:', result.title, result.type)
     
-    // Play the track
-    playTrack(result, formattedResults, index)
-    
-    // Navigate to now playing
-    navigateTo('nowPlaying', true)
+    if (result.type === 'song') {
+      // Play the track
+      playTrack(result, formattedResults.filter(r => r.type === 'song'), index)
+      
+      // Navigate to now playing
+      navigateTo('nowPlaying', true)
+    } else {
+      // For albums/artists, maybe navigate to details (TODO)
+      console.log('Non-song result clicked, not implemented yet')
+    }
   }
   
   return (

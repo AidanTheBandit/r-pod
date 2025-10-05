@@ -11,6 +11,7 @@ export const usePlayerStore = create((set, get) => ({
   currentTime: 0,
   duration: 0,
   volume: 0.8,
+  error: null, // Error message for playback issues
   
   // Queue management
   queue: [],
@@ -27,16 +28,36 @@ export const usePlayerStore = create((set, get) => ({
   },
   
   // Play track
-  playTrack: (track, queue = [], queueIndex = 0) => {
+  playTrack: (track, queue = [], index = 0) => {
+    console.log('Playing track:', track.title)
     set({
       currentTrack: track,
-      queue: queue.length > 0 ? queue : [track],
-      queueIndex,
+      queue,
+      currentIndex: index,
       isPlaying: true,
-      currentTime: 0,
+      error: null, // Clear any previous errors
     })
-    
-    console.log('Playing track:', track.title)
+
+    // Auto-play through audio element
+    const audio = get().audioElement
+    if (audio) {
+      audio.play().catch((error) => {
+        console.error('Error playing audio:', error)
+        
+        // Check if it's a 403 (protected track) error
+        if (error.message?.includes('403')) {
+          set({
+            error: 'This track is protected by YouTube and cannot be streamed. Try a different song.',
+            isPlaying: false
+          })
+        } else {
+          set({
+            error: 'Failed to play audio. The track may not be available.',
+            isPlaying: false
+          })
+        }
+      })
+    }
   },
   
   // Toggle play/pause

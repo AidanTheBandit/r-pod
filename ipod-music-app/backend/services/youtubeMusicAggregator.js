@@ -130,17 +130,20 @@ export class YouTubeMusicAggregator {
           section.contents.forEach((item, index) => {
             if (item.videoId && tracks.length < 100) { // Limit to 100 tracks total
               try {
-                tracks.push({
+                const track = {
                   id: `ytm:${item.videoId}`,
-                  title: item.title || item.name,
+                  title: item.title || item.name || 'Unknown Title',
                   artist: item.artist?.name || item.artists?.[0]?.name || 'Unknown Artist',
                   album: item.album?.name || 'Unknown Album',
                   duration: item.duration,
                   albumArt: item.thumbnails?.[0]?.url || item.thumbnail?.url,
                   streamUrl: `/api/stream/youtube/${item.videoId}`,
                   service: 'youtubeMusic',
-                  section: section.title
-                })
+                  section: section.title,
+                  videoId: item.videoId
+                }
+                console.log(`[YTM] Mapped track:`, { title: track.title, artist: track.artist })
+                tracks.push(track)
               } catch (mapError) {
                 console.error(`[YTM] Error mapping item ${index} in section "${section.title}":`, mapError.message)
               }
@@ -186,16 +189,16 @@ export class YouTubeMusicAggregator {
       
       console.log(`[YTM] Total tracks collected: ${allTracks.length}`)
       
-      const mappedTracks = allTracks.map((song, index) => {
+            const mappedTracks = results.slice(0, 10).map((song, index) => {
         try {
           return {
-            id: `ytm:${song.videoId}`,
-            title: song.title,
-            artist: song.artists?.[0]?.name || 'Unknown Artist',
+            id: `ytm:${song.videoId || song.id}`,
+            title: song.title || song.name || 'Unknown Title',
+            artist: song.artist?.name || song.artists?.[0]?.name || 'Unknown Artist',
             album: song.album?.name || 'Unknown Album',
-            duration: song.duration,
-            albumArt: song.thumbnails?.[0]?.url,
-            streamUrl: `/api/stream/youtube/${song.videoId}`,
+            duration: song.duration || null,
+            albumArt: song.thumbnails?.[0]?.url || song.thumbnail?.url,
+            streamUrl: `/api/stream/youtube/${song.videoId || song.id}`,
             service: 'youtubeMusic'
           }
         } catch (mapError) {
@@ -213,8 +216,8 @@ export class YouTubeMusicAggregator {
     }
   }
 
-  async getAlbums() {
-    console.log('[YTM] getAlbums() called')
+  async getAlbums(type = 'user') {
+    console.log('[YTM] getAlbums() called - fetching', type, 'albums')
     
     if (!await this.authenticate()) {
       console.error('[YTM] getAlbums: Authentication failed')
@@ -222,37 +225,73 @@ export class YouTubeMusicAggregator {
     }
 
     try {
-      console.log('[YTM] Searching for popular albums...')
-      const albums = await this.ytm.searchAlbums('popular albums 2025')
-      
-      console.log('[YTM] searchAlbums response:', {
-        type: typeof albums,
-        isArray: Array.isArray(albums),
-        length: albums?.length,
-        sample: albums?.[0] ? {
-          title: albums[0].title,
-          browseId: albums[0].browseId
-        } : null
-      })
-      
-      if (!albums || !Array.isArray(albums) || albums.length === 0) {
-        console.warn('[YTM] No albums found')
-        return []
+      if (type === 'popular') {
+        console.log('[YTM] Searching for popular albums...')
+        const albums = await this.ytm.searchAlbums('popular albums 2025')
+        
+        console.log('[YTM] searchAlbums response:', {
+          type: typeof albums,
+          isArray: Array.isArray(albums),
+          length: albums?.length,
+          sample: albums?.[0] ? {
+            title: albums[0].name,
+            browseId: albums[0].browseId
+          } : null
+        })
+        
+        if (!albums || !Array.isArray(albums) || albums.length === 0) {
+          console.warn('[YTM] No albums found')
+          return []
+        }
+        
+        const mappedAlbums = albums.slice(0, 20).map(album => ({
+          id: `ytm:${album.albumId || album.browseId || album.playlistId}`,
+          title: album.name,
+          artist: album.artist?.name || 'Unknown Artist',
+          year: album.year,
+          coverArt: album.thumbnails?.[0]?.url,
+          trackCount: album.trackCount || 0,
+          service: 'youtubeMusic'
+        }))
+
+        console.log(`[YTM] ✓ Mapped ${mappedAlbums.length} popular albums successfully`)
+        return mappedAlbums
+      } else {
+        // User albums
+        console.log('[YTM] Fetching user albums from library...')
+        const library = await this.ytm.getLibrary()
+        
+        console.log('[YTM] getLibrary response:', {
+          type: typeof library,
+          isArray: Array.isArray(library),
+          length: library?.length,
+          sample: library?.[0] ? {
+            title: library[0].title,
+            type: library[0].type
+          } : null
+        })
+        
+        if (!library || !Array.isArray(library) || library.length === 0) {
+          console.warn('[YTM] No user library found')
+          return []
+        }
+        
+        // Filter for albums
+        const albums = library.filter(item => item.type === 'album')
+        
+        const mappedAlbums = albums.map(album => ({
+          id: `ytm:${album.albumId || album.browseId || album.playlistId || album.id}`,
+          title: album.title || album.name || 'Unknown Album',
+          artist: album.artist?.name || album.artists?.[0]?.name || 'Unknown Artist',
+          year: album.year,
+          coverArt: album.thumbnails?.[0]?.url || album.thumbnail?.url,
+          trackCount: album.trackCount || album.songCount || 0,
+          service: 'youtubeMusic'
+        }))
+
+        console.log(`[YTM] ✓ Mapped ${mappedAlbums.length} user albums successfully`)
+        return mappedAlbums
       }
-      
-      const mappedAlbums = albums.slice(0, 20).map(album => ({
-        id: `ytm:${album.albumId || album.browseId || album.playlistId}`,
-        title: album.name,
-        artist: album.artist?.name || 'Unknown Artist',
-        year: album.year,
-        coverArt: album.thumbnails?.[0]?.url,
-        trackCount: album.trackCount || 0,
-        service: 'youtubeMusic'
-      }))
-
-      console.log(`[YTM] ✓ Mapped ${mappedAlbums.length} albums successfully`)
-      return mappedAlbums
-
     } catch (error) {
       console.error('[YTM] getAlbums error:', {
         message: error.message,
@@ -272,7 +311,10 @@ export class YouTubeMusicAggregator {
 
     try {
       console.log('[YTM] Fetching user playlists from library...')
-      const playlists = await this.ytm.getLibraryPlaylists()
+      const library = await this.ytm.getLibrary()
+      
+      // Filter for playlists
+      const playlists = library.filter(item => item.type === 'playlist')
       
       console.log('[YTM] getLibraryPlaylists response:', {
         type: typeof playlists,
@@ -295,7 +337,7 @@ export class YouTubeMusicAggregator {
         }
         
         return {
-          id: `ytm:${playlist.playlistId}`,
+          id: `ytm:${playlist.playlistId || playlist.browseId || playlist.id}`,
           name: playlist.title || playlist.name || 'Unknown Playlist',
           title: playlist.title || playlist.name || 'Unknown Playlist',
           description: playlist.description || '',
@@ -367,22 +409,25 @@ export class YouTubeMusicAggregator {
       } else {
         // User artists
         console.log('[YTM] Fetching user artists from library...')
-        const artists = await this.ytm.getLibraryArtists()
+        const library = await this.ytm.getLibrary()
         
-        console.log('[YTM] getLibraryArtists response:', {
-          type: typeof artists,
-          isArray: Array.isArray(artists),
-          length: artists?.length,
-          sample: artists?.[0] ? {
-            name: artists[0].name,
-            browseId: artists[0].browseId
+        console.log('[YTM] getLibrary response:', {
+          type: typeof library,
+          isArray: Array.isArray(library),
+          length: library?.length,
+          sample: library?.[0] ? {
+            name: library[0].name,
+            type: library[0].type
           } : null
         })
         
-        if (!artists || !Array.isArray(artists) || artists.length === 0) {
-          console.warn('[YTM] No user artists found')
+        if (!library || !Array.isArray(library) || library.length === 0) {
+          console.warn('[YTM] No user library found')
           return []
         }
+        
+        // Filter for artists
+        const artists = library.filter(item => item.type === 'artist')
         
         const mappedArtists = artists.map((artist, index) => {
           console.log(`[YTM] Mapping artist ${index}:`, {
@@ -422,37 +467,60 @@ export class YouTubeMusicAggregator {
     }
 
     try {
-      console.log('[YTM] Calling ytm.searchSongs()...')
-      const results = await this.ytm.searchSongs(query)
+      console.log('[YTM] Searching for songs...')
+      const songs = await this.ytm.searchSongs(query)
       
-      console.log('[YTM] searchSongs response:', {
-        type: typeof results,
-        isArray: Array.isArray(results),
-        length: results?.length,
-        sample: results?.[0] ? {
-          title: results[0].title,
-          videoId: results[0].videoId
-        } : null
-      })
+      console.log('[YTM] Searching for albums...')
+      const albums = await this.ytm.searchAlbums(query)
       
-      if (!results || !Array.isArray(results) || results.length === 0) {
-        console.warn('[YTM] No search results found')
-        return []
+      console.log('[YTM] Searching for artists...')
+      const artists = await this.ytm.searchArtists(query)
+      
+      const results = []
+      
+      // Add songs
+      if (songs && Array.isArray(songs)) {
+        const mappedSongs = songs.map(track => ({
+          id: `ytm:${track.videoId}`,
+          title: track.title,
+          artist: track.artists?.[0]?.name || 'Unknown Artist',
+          album: track.album?.name || 'Unknown Album',
+          duration: track.duration,
+          albumArt: track.thumbnails?.[0]?.url,
+          streamUrl: `/api/stream/youtube/${track.videoId}`,
+          service: 'youtubeMusic',
+          type: 'song'
+        }))
+        results.push(...mappedSongs)
+      }
+      
+      // Add albums
+      if (albums && Array.isArray(albums)) {
+        const mappedAlbums = albums.map(album => ({
+          id: `ytm:${album.albumId || album.browseId}`,
+          title: album.name,
+          artist: album.artist?.name || 'Unknown Artist',
+          albumArt: album.thumbnails?.[0]?.url,
+          service: 'youtubeMusic',
+          type: 'album'
+        }))
+        results.push(...mappedAlbums)
+      }
+      
+      // Add artists
+      if (artists && Array.isArray(artists)) {
+        const mappedArtists = artists.map(artist => ({
+          id: `ytm:${artist.artistId || artist.browseId}`,
+          title: artist.name,
+          albumArt: artist.thumbnails?.[0]?.url,
+          service: 'youtubeMusic',
+          type: 'artist'
+        }))
+        results.push(...mappedArtists)
       }
 
-      const mappedResults = results.map(track => ({
-        id: `ytm:${track.videoId}`,
-        title: track.title,
-        artist: track.artists?.[0]?.name || 'Unknown Artist',
-        album: track.album?.name || 'Unknown Album',
-        duration: track.duration,
-        albumArt: track.thumbnails?.[0]?.url,
-        streamUrl: `/api/stream/youtube/${track.videoId}`,
-        service: 'youtubeMusic'
-      }))
-
-      console.log(`[YTM] ✓ Mapped ${mappedResults.length} search results successfully`)
-      return mappedResults
+      console.log(`[YTM] ✓ Mapped ${results.length} search results successfully`)
+      return results
 
     } catch (error) {
       console.error('[YTM] search error:', {

@@ -12,57 +12,13 @@ function NowPlayingView() {
     playNext,
     playPrevious,
     seekTo,
-    updateCurrentTime,
-    setDuration,
-    setAudioElement,
     shuffle,
     repeat,
     toggleShuffle,
     cycleRepeat,
   } = usePlayerStore()
   
-  const audioRef = useRef(null)
   const progressRef = useRef(null)
-  
-  // Set audio element in store
-  useEffect(() => {
-    if (audioRef.current) {
-      setAudioElement(audioRef.current)
-    }
-  }, [setAudioElement])
-  
-  // Update current time
-  useEffect(() => {
-    const audio = audioRef.current
-    if (!audio) return
-    
-    const handleTimeUpdate = () => {
-      updateCurrentTime(audio.currentTime)
-    }
-    
-    const handleDurationChange = () => {
-      setDuration(audio.duration)
-    }
-    
-    const handleEnded = () => {
-      if (repeat === 'one') {
-        audio.currentTime = 0
-        audio.play()
-      } else {
-        playNext()
-      }
-    }
-    
-    audio.addEventListener('timeupdate', handleTimeUpdate)
-    audio.addEventListener('durationchange', handleDurationChange)
-    audio.addEventListener('ended', handleEnded)
-    
-    return () => {
-      audio.removeEventListener('timeupdate', handleTimeUpdate)
-      audio.removeEventListener('durationchange', handleDurationChange)
-      audio.removeEventListener('ended', handleEnded)
-    }
-  }, [updateCurrentTime, setDuration, playNext, repeat])
   
   // Format time helper
   const formatTime = (seconds) => {
@@ -97,16 +53,58 @@ function NowPlayingView() {
   
   const progressPercentage = duration ? (currentTime / duration) * 100 : 0
   
+  // Calculate circle progress
+  const radius = 130
+  const circumference = 2 * Math.PI * radius
+  const strokeDashoffset = circumference - (progressPercentage / 100) * circumference
+
+  // Get error state
+  const error = usePlayerStore((state) => state.error)
+
   return (
     <div className="now-playing-view view-wrapper">
       <div className="now-playing-container">
-        {/* Album Art */}
+        {/* Error Message */}
+        {error && (
+          <div className="playback-error">
+            <div className="error-icon">⚠️</div>
+            <div className="error-message">{error}</div>
+          </div>
+        )}
+        {/* Album Art with Circular Progress */}
         <div className="album-art-container">
+          {/* Circular Progress Ring */}
+          <svg className="progress-ring" width="260" height="260">
+            {/* Background circle */}
+            <circle
+              cx="130"
+              cy="130"
+              r={radius}
+              stroke="#e0e0e0"
+              strokeWidth="4"
+              fill="none"
+            />
+            {/* Progress circle */}
+            <circle
+              className="progress-ring-circle"
+              cx="130"
+              cy="130"
+              r={radius}
+              stroke="#007bff"
+              strokeWidth="4"
+              fill="none"
+              strokeDasharray={circumference}
+              strokeDashoffset={strokeDashoffset}
+              strokeLinecap="round"
+            />
+          </svg>
+          
+          {/* Album Art */}
           <div className="album-art">
             {currentTrack.albumArt ? (
               <img src={currentTrack.albumArt} alt={currentTrack.album} />
             ) : (
-              <div className="album-art-placeholder">ALBUM</div>
+              <div className="album-art-placeholder">♪</div>
             )}
           </div>
         </div>
@@ -120,19 +118,9 @@ function NowPlayingView() {
           <div className="song-album">{currentTrack.album}</div>
         </div>
         
-        {/* Progress Bar */}
+        {/* Progress Time Display */}
         <div className="progress-container">
           <div className="progress-time">{formatTime(currentTime)}</div>
-          <div
-            className="progress-bar"
-            ref={progressRef}
-            onClick={handleProgressClick}
-          >
-            <div
-              className="progress-fill"
-              style={{ width: `${progressPercentage}%` }}
-            />
-          </div>
           <div className="progress-time">{formatTime(duration)}</div>
         </div>
         
@@ -189,13 +177,6 @@ function NowPlayingView() {
           </div>
         </div>
       </div>
-      
-      {/* Audio element */}
-      <audio
-        ref={audioRef}
-        src={currentTrack.streamUrl}
-        autoPlay={isPlaying}
-      />
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useEffect, Suspense } from 'react'
+import { useEffect, useRef, Suspense } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useNavigationStore } from './store/navigationStore'
 import { usePlayerStore } from './store/playerStore'
@@ -16,6 +16,114 @@ import NowPlayingView from './views/NowPlayingView'
 import SettingsView from './views/SettingsView'
 import SearchView from './views/SearchView'
 import './styles/App.css'
+
+// Background player component that stays mounted
+function BackgroundPlayer() {
+  const {
+    currentTrack,
+    isPlaying,
+    currentTime,
+    duration,
+    togglePlayPause,
+    playNext,
+    playPrevious,
+    seekTo,
+    updateCurrentTime,
+    setDuration,
+    setAudioElement,
+    repeat,
+  } = usePlayerStore()
+  
+  const audioRef = useRef(null)
+  
+  // Set audio element in store
+  useEffect(() => {
+    if (audioRef.current) {
+      setAudioElement(audioRef.current)
+    }
+  }, [setAudioElement])
+  
+  // Update current time
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    
+    const handleTimeUpdate = () => {
+      updateCurrentTime(audio.currentTime)
+    }
+    
+    const handleDurationChange = () => {
+      setDuration(audio.duration)
+    }
+    
+    const handleEnded = () => {
+      if (repeat === 'one') {
+        audio.currentTime = 0
+        audio.play()
+      } else {
+        playNext()
+      }
+    }
+    
+    audio.addEventListener('timeupdate', handleTimeUpdate)
+    audio.addEventListener('durationchange', handleDurationChange)
+    audio.addEventListener('ended', handleEnded)
+    
+    return () => {
+      audio.removeEventListener('timeupdate', handleTimeUpdate)
+      audio.removeEventListener('durationchange', handleDurationChange)
+      audio.removeEventListener('ended', handleEnded)
+    }
+  }, [updateCurrentTime, setDuration, playNext, repeat])
+  
+  // Handle authentication for audio streams
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio || !currentTrack?.streamUrl) return
+
+    const loadAudio = async () => {
+      try {
+        // First, try to fetch the stream URL to see if it's a redirect
+        const response = await fetch(currentTrack.streamUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json, audio/*',
+          },
+        })
+
+        if (response.headers.get('content-type')?.includes('application/json')) {
+          // This is a JSON response (redirect to YouTube)
+          const data = await response.json()
+          if (data.type === 'youtube_url') {
+            console.log('Streaming not available, opening YouTube:', data.url)
+            // Open YouTube in new tab
+            window.open(data.url, '_blank')
+            // Show error in player
+            usePlayerStore.setState({ error: 'Streaming not available. Opened in YouTube.' })
+            return
+          }
+        }
+
+        // It's audio data, set it as src
+        const urlWithAuth = currentTrack.streamUrl
+        audio.src = urlWithAuth
+      } catch (error) {
+        console.error('Error loading audio:', error)
+        usePlayerStore.setState({ error: 'Failed to load audio stream' })
+      }
+    }
+
+    loadAudio()
+  }, [currentTrack])
+
+  return (
+    <audio
+      ref={audioRef}
+      crossOrigin="anonymous"
+      autoPlay={isPlaying}
+    />
+  )
+}
 
 // Create React Query client with production settings
 const queryClient = new QueryClient({
@@ -75,7 +183,7 @@ function AppContent({ sdk }) {
 
   useEffect(() => {
     console.log('App mounted, current view:', currentView)
-  }, [currentView])
+  }, [])
 
   // Render current view with error boundary
   const renderView = () => {
@@ -111,6 +219,7 @@ function AppContent({ sdk }) {
           </Suspense>
         </ErrorBoundary>
       </div>
+      <BackgroundPlayer />
     </div>
   )
 }

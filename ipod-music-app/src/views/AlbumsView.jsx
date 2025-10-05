@@ -1,11 +1,14 @@
+import { useState } from 'react'
 import { useServiceStore } from '../store/serviceStore'
 import { useAlbums } from '../hooks/useMusicData'
 import ListView from '../components/ListView'
 import './AlbumsView.css'
 
 function AlbumsView() {
+  const [albumType, setAlbumType] = useState('user') // 'user' or 'popular'
+  
   // Fetch albums from configured services
-  const { data: albums = [], isLoading, error } = useAlbums()
+  const { data: albums = [], isLoading, error } = useAlbums(albumType)
   
   // Format albums for ListView
   const formattedAlbums = albums.map(album => ({
@@ -58,7 +61,21 @@ function AlbumsView() {
     <div className="albums-view view-wrapper">
       {formattedAlbums.length > 0 && (
         <div className="view-header">
-          <h2>Popular Albums</h2>
+          <h2>{albumType === 'user' ? 'Your Albums' : 'Popular Albums'}</h2>
+          <div className="view-controls">
+            <button 
+              className={`control-btn ${albumType === 'user' ? 'active' : ''}`}
+              onClick={() => setAlbumType('user')}
+            >
+              Your Albums
+            </button>
+            <button 
+              className={`control-btn ${albumType === 'popular' ? 'active' : ''}`}
+              onClick={() => setAlbumType('popular')}
+            >
+              Popular
+            </button>
+          </div>
         </div>
       )}
       <ListView items={formattedAlbums} onItemClick={handleAlbumClick} />

@@ -23,12 +23,12 @@ export function usePlaylists() {
   })
 }
 
-export function useAlbums() {
+export function useAlbums(type = 'user') {
   return useQuery({
-    queryKey: ['albums'],
+    queryKey: ['albums', type],
     queryFn: async () => {
       try {
-        return await backendAPI.getAlbums()
+        return await backendAPI.getAlbums(type)
       } catch (error) {
         console.error('Error fetching albums:', error)
         throw error

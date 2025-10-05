@@ -51,12 +51,31 @@ const initializeClient = () => {
     (response) => {
       // Convert relative streaming URLs to full URLs
       if (response.data && Array.isArray(response.data.tracks)) {
-        response.data.tracks = response.data.tracks.map(track => ({
-          ...track,
-          streamUrl: track.streamUrl?.startsWith('/api/') 
-            ? `${BACKEND_URL}${track.streamUrl}` 
-            : track.streamUrl
-        }))
+        response.data.tracks = response.data.tracks.map(track => {
+          let fullStreamUrl = track.streamUrl
+          
+          // Convert to full URL if relative
+          if (fullStreamUrl?.startsWith('/api/')) {
+            fullStreamUrl = `${BACKEND_URL}${fullStreamUrl}`
+          }
+          
+          // Add password as query param for audio element authentication
+          if (fullStreamUrl) {
+            try {
+              const url = new URL(fullStreamUrl)
+              url.searchParams.set('password', BACKEND_PASSWORD)
+              fullStreamUrl = url.toString()
+            } catch (e) {
+              console.error('[BackendClient] Failed to parse URL:', fullStreamUrl, e)
+            }
+          }
+          
+          console.log('[BackendClient] Track:', track.title, 'Stream URL:', fullStreamUrl)
+          return {
+            ...track,
+            streamUrl: fullStreamUrl
+          }
+        })
       }
       if (response.data && Array.isArray(response.data.albums)) {
         response.data.albums = response.data.albums.map(album => ({
@@ -127,8 +146,10 @@ export const backendAPI = {
     return response.data.tracks || []
   },
 
-  async getAlbums() {
-    const response = await client.get('/api/albums')
+  async getAlbums(type = 'user') {
+    const response = await client.get('/api/albums', {
+      params: { type }
+    })
     return response.data.albums || []
   },
 
