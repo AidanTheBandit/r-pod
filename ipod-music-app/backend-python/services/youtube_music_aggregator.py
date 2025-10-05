@@ -1392,6 +1392,36 @@ class YouTubeMusicAggregator(BaseMusicService):
         
         return albums
     
+    async def get_album_tracks(self, album_id: str) -> List[Dict[str, Any]]:
+        """Get tracks for a specific album"""
+        if not self.is_authenticated:
+            await self.authenticate()
+        
+        tracks = []
+        
+        try:
+            # Remove the ytm: prefix if present
+            clean_album_id = album_id.replace("ytm:", "") if album_id.startswith("ytm:") else album_id
+            
+            logger.info(f"[YTM] Getting tracks for album: {clean_album_id}")
+            
+            # For YouTube Music, albums are accessed like playlists
+            album_data = await self._run_sync(self.ytm.get_playlist, clean_album_id, limit=1000)
+            
+            if album_data and "tracks" in album_data:
+                for track in album_data["tracks"]:
+                    if track and "videoId" in track:
+                        mapped = self._map_ytm_track(track)
+                        if mapped:
+                            tracks.append(mapped)
+            
+            logger.info(f"[YTM] ✓ Found {len(tracks)} tracks in album")
+            
+        except Exception as e:
+            logger.error(f"[YTM] Error getting album tracks: {e}")
+        
+        return tracks
+    
     def _get_best_thumbnail(self, thumbnails: List[Dict[str, Any]]) -> Optional[str]:
         """Get the highest quality thumbnail URL"""
         if not thumbnails:

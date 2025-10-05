@@ -329,36 +329,15 @@ async def get_playlists(
     return {"playlists": playlists}
 
 
-@app.get("/api/playlists/{playlistId}/tracks")
-async def get_playlist_tracks(
-    playlistId: str,
+@app.get("/api/albums/{albumId}/tracks")
+async def get_album_tracks(
+    albumId: str,
     sessionId: str = Query(...),
     authenticated: bool = Depends(verify_password)
 ):
-    """Get tracks from a specific playlist"""
+    """Get tracks for a specific album"""
     session = get_session(sessionId)
-
-    # Auto-connect YouTube Music if available and not connected
-    if "youtubeMusic" not in session["services"] and settings.youtube_music_cookie:
-        logger.info("[Playlist Tracks] Auto-connecting YouTube Music")
-        try:
-            ytm = YouTubeMusicAggregator({
-                "cookie": settings.youtube_music_cookie,
-                "profile": settings.youtube_music_profile,
-                "brand_account_id": settings.youtube_music_brand_account_id
-            })
-            if await ytm.authenticate():
-                session["services"]["youtubeMusic"] = ytm
-                logger.info("[Playlist Tracks] ✓ YouTube Music auto-connected")
-        except Exception as e:
-            logger.error(f"[Playlist Tracks] Auto-connect failed: {e}")
-
-    # Get playlist tracks from YouTube Music service
-    ytm_service = session["services"].get("youtubeMusic")
-    if not ytm_service:
-        raise HTTPException(404, "YouTube Music not connected")
-
-    tracks = await ytm_service.get_playlist_tracks(playlistId)
+    tracks = await aggregate(session, "get_album_tracks", albumId)
     return {"tracks": tracks}
 
 

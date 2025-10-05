@@ -276,3 +276,41 @@ class SpotifyAggregator(BaseMusicService):
             logger.error(f"[Spotify] Error getting artist albums: {e}")
         
         return albums
+    
+    async def get_album_tracks(self, album_id: str) -> List[Dict[str, Any]]:
+        """Get tracks for a specific album"""
+        if not self.is_authenticated:
+            await self.authenticate()
+        
+        tracks = []
+        
+        try:
+            # Remove the spotify: prefix if present
+            clean_album_id = album_id.replace("spotify:", "") if album_id.startswith("spotify:") else album_id
+            
+            logger.info(f"[Spotify] Getting tracks for album: {clean_album_id}")
+            
+            results = await self._run_sync(
+                self.sp.album_tracks,
+                clean_album_id,
+                limit=50
+            )
+            
+            for track in results["items"]:
+                tracks.append({
+                    "id": f"spotify:{track['id']}",
+                    "title": track["name"],
+                    "artist": track["artists"][0]["name"] if track["artists"] else "Unknown",
+                    "album": track["album"]["name"] if track.get("album") else "Unknown",
+                    "duration": track["duration_ms"] // 1000,
+                    "albumArt": self._get_best_image(track["album"]["images"]) if track.get("album") and track["album"].get("images") else None,
+                    "streamUrl": track.get("preview_url"),
+                    "service": "spotify"
+                })
+            
+            logger.info(f"[Spotify] ✓ Found {len(tracks)} tracks in album")
+            
+        except Exception as e:
+            logger.error(f"[Spotify] Error getting album tracks: {e}")
+        
+        return tracks
