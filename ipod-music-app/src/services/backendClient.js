@@ -96,20 +96,57 @@ const initializeClient = () => {
         }))
       }
       if (response.data && Array.isArray(response.data.results)) {
-        response.data.results = response.data.results.map(result => ({
-          ...result,
-          streamUrl: result.streamUrl?.startsWith('/api/') 
-            ? `${BACKEND_URL}${result.streamUrl}` 
-            : result.streamUrl
-        }))
+        response.data.results = response.data.results.map(result => {
+          let fullStreamUrl = result.streamUrl
+          
+          // Convert to full URL if relative
+          if (fullStreamUrl?.startsWith('/api/')) {
+            fullStreamUrl = `${BACKEND_URL}${fullStreamUrl}`
+          }
+          
+          // Add password as query param for audio element authentication
+          if (fullStreamUrl) {
+            try {
+              const url = new URL(fullStreamUrl)
+              url.searchParams.set('password', BACKEND_PASSWORD)
+              fullStreamUrl = url.toString()
+            } catch (e) {
+              console.error('[BackendClient] Failed to parse search result URL:', fullStreamUrl, e)
+            }
+          }
+          
+          console.log('[BackendClient] Search Result:', result.title, 'Stream URL:', fullStreamUrl)
+          return {
+            ...result,
+            streamUrl: fullStreamUrl
+          }
+        })
       }
       if (response.data && Array.isArray(response.data.recommendations)) {
-        response.data.recommendations = response.data.recommendations.map(rec => ({
-          ...rec,
-          streamUrl: rec.streamUrl?.startsWith('/api/') 
-            ? `${BACKEND_URL}${rec.streamUrl}` 
-            : rec.streamUrl
-        }))
+        response.data.recommendations = response.data.recommendations.map(rec => {
+          let fullStreamUrl = rec.streamUrl
+          
+          // Convert to full URL if relative
+          if (fullStreamUrl?.startsWith('/api/')) {
+            fullStreamUrl = `${BACKEND_URL}${fullStreamUrl}`
+          }
+          
+          // Add password as query param for audio element authentication
+          if (fullStreamUrl) {
+            try {
+              const url = new URL(fullStreamUrl)
+              url.searchParams.set('password', BACKEND_PASSWORD)
+              fullStreamUrl = url.toString()
+            } catch (e) {
+              console.error('[BackendClient] Failed to parse recommendation URL:', fullStreamUrl, e)
+            }
+          }
+          
+          return {
+            ...rec,
+            streamUrl: fullStreamUrl
+          }
+        })
       }
       return response
     },

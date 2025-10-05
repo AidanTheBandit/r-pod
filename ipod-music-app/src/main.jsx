@@ -23,11 +23,11 @@ const isR1Environment = typeof window.PluginMessageHandler !== 'undefined'
 if (isR1Environment) {
   // Initialize R1 app
   createR1App(async (sdk) => {
-    console.log('🎵 iPod Music App initializing for R1...')
+    console.log('[R1] iPod Music App initializing...')
     
     // Setup R1 viewport optimization
     ui.setupViewport()
-    console.log('📱 Viewport configured for 240x282px display')
+    console.log('[R1] Viewport configured for 240x282px display')
 
     // Mount React app
     ReactDOM.createRoot(document.getElementById('root')).render(
@@ -38,12 +38,12 @@ if (isR1Environment) {
       </React.StrictMode>,
     )
 
-    console.log('✅ iPod Music App ready! Controls: Scroll Wheel + PTT Button')
+    console.log('[R1] App ready - Controls: Scroll Wheel + PTT Button')
   })
 } else {
   // Fallback for browser development (no R1 device)
-  console.log('🌐 Running in browser mode (development)')
-  console.log('⚠️  Use arrow keys + space bar to simulate scroll wheel & PTT')
+  console.log('[Browser] Running in development mode')
+  console.log('[Browser] Use arrow keys + space bar to simulate scroll wheel & PTT')
 
   ReactDOM.createRoot(document.getElementById('root')).render(
     <React.StrictMode>
