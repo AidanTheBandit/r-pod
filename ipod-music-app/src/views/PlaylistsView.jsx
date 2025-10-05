@@ -4,8 +4,6 @@ import ListView from '../components/ListView'
 import './PlaylistsView.css'
 
 function PlaylistsView() {
-  const { hasConfiguredServices } = useServiceStore()
-  
   // Fetch playlists from configured services
   const { data: playlists = [], isLoading, error } = usePlaylists()
   
@@ -39,18 +37,6 @@ function PlaylistsView() {
         <div className="error-container">
           <div className="error-icon">!</div>
           <div className="error-message">Failed to load playlists</div>
-        </div>
-      </div>
-    )
-  }
-  
-  // Show empty state if no services configured
-  if (!hasConfiguredServices()) {
-    return (
-      <div className="playlists-view view-wrapper">
-        <div className="empty-container">
-          <div className="empty-text">No services configured</div>
-          <div className="empty-subtext">Go to Settings to connect a music service</div>
         </div>
       </div>
     )

@@ -152,9 +152,9 @@ export class YouTubeMusicAggregator {
       }
       
       const mappedAlbums = albums.slice(0, 20).map(album => ({
-        id: `ytm:${album.browseId || album.playlistId}`,
-        title: album.title,
-        artist: album.artists?.[0]?.name || 'Unknown Artist',
+        id: `ytm:${album.albumId || album.browseId || album.playlistId}`,
+        title: album.name,
+        artist: album.artist?.name || 'Unknown Artist',
         year: album.year,
         coverArt: album.thumbnails?.[0]?.url,
         trackCount: album.trackCount || 0,
@@ -248,12 +248,22 @@ export class YouTubeMusicAggregator {
         return []
       }
       
-      const mappedArtists = artists.slice(0, 20).map(artist => ({
-        id: `ytm:${artist.browseId || artist.id}`,
-        name: artist.name,
-        image: artist.thumbnails?.[0]?.url,
-        service: 'youtubeMusic'
-      }))
+      const mappedArtists = artists.slice(0, 20).map((artist, index) => {
+        console.log(`[YTM] Mapping artist ${index}:`, {
+          name: artist.name,
+          artistId: artist.artistId,
+          browseId: artist.browseId,
+          id: artist.id,
+          type: artist.type
+        })
+        
+        return {
+          id: `ytm:${artist.artistId || artist.browseId || artist.id}`,
+          name: artist.name,
+          image: artist.thumbnails?.[0]?.url,
+          service: 'youtubeMusic'
+        }
+      })
 
       console.log(`[YTM] ✓ Mapped ${mappedArtists.length} artists successfully`)
       return mappedArtists

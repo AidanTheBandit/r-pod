@@ -8,7 +8,6 @@ import './SongsView.css'
 function SongsView() {
   const { navigateTo } = useNavigationStore()
   const { playTrack } = usePlayerStore()
-  const { hasConfiguredServices } = useServiceStore()
   
   // Fetch songs from configured services
   const { data: songs = [], isLoading, error } = useTracks()
@@ -49,18 +48,6 @@ function SongsView() {
           <div className="error-icon">!</div>
           <div className="error-message">Failed to load songs</div>
           <div className="error-details">{error.message}</div>
-        </div>
-      </div>
-    )
-  }
-  
-  // Show empty state if no services configured
-  if (!hasConfiguredServices()) {
-    return (
-      <div className="songs-view view-wrapper">
-        <div className="empty-container">
-          <div className="empty-text">No services configured</div>
-          <div className="empty-subtext">Go to Settings to connect a music service</div>
         </div>
       </div>
     )

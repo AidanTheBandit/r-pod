@@ -2,6 +2,8 @@ import { useEffect, Suspense } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useNavigationStore } from './store/navigationStore'
 import { usePlayerStore } from './store/playerStore'
+import { useServiceStore } from './store/serviceStore'
+import { backendAPI } from './services/backendClient'
 import { useDeviceControls } from './hooks/useDeviceControls'
 import ErrorBoundary from './components/ErrorBoundary'
 import Header from './components/Header'
@@ -45,9 +47,31 @@ const LoadingFallback = () => (
 
 function AppContent({ sdk }) {
   const { currentView } = useNavigationStore()
+  const { toggleService, services } = useServiceStore()
 
   // Initialize device controls
   useDeviceControls(sdk)
+
+  // Auto-connect YouTube Music on app startup
+  useEffect(() => {
+    const autoConnectYouTubeMusic = async () => {
+      // Only auto-connect if not already connected
+      if (!services.youtubeMusic.enabled) {
+        try {
+          console.log('Attempting to auto-connect YouTube Music...')
+          await backendAPI.connectService('youtubeMusic', {})
+          toggleService('youtubeMusic', true)
+          console.log('YouTube Music auto-connected successfully!')
+        } catch (error) {
+          console.log('YouTube Music auto-connect failed (expected if no cookie):', error.message)
+        }
+      }
+    }
+
+    // Small delay to ensure backend is ready
+    const timer = setTimeout(autoConnectYouTubeMusic, 1000)
+    return () => clearTimeout(timer)
+  }, [services.youtubeMusic.enabled, toggleService])
 
   useEffect(() => {
     console.log('App mounted, current view:', currentView)

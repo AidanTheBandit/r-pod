@@ -4,10 +4,12 @@ import ListView from '../components/ListView'
 import './ArtistsView.css'
 
 function ArtistsView() {
-  const { hasConfiguredServices } = useServiceStore()
-  
   // Fetch artists from configured services
   const { data: artists = [], isLoading, error } = useArtists()
+  
+  console.log('ArtistsView: artists data:', artists)
+  console.log('ArtistsView: isLoading:', isLoading)
+  console.log('ArtistsView: error:', error)
   
   // Format artists for ListView
   const formattedArtists = artists.map(artist => ({
@@ -40,18 +42,6 @@ function ArtistsView() {
         <div className="error-container">
           <div className="error-icon">!</div>
           <div className="error-message">Failed to load artists</div>
-        </div>
-      </div>
-    )
-  }
-  
-  // Show empty state if no services configured
-  if (!hasConfiguredServices()) {
-    return (
-      <div className="artists-view view-wrapper">
-        <div className="empty-container">
-          <div className="empty-text">No services configured</div>
-          <div className="empty-subtext">Go to Settings to connect a music service</div>
         </div>
       </div>
     )
