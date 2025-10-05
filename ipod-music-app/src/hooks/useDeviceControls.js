@@ -149,6 +149,11 @@ export function useDeviceControls(sdk) {
   // Handle keyboard fallback for development
   useEffect(() => {
     const handleKeyboard = (e) => {
+      // Don't intercept space bar if user is typing in an input field
+      if (e.key === ' ' && document.activeElement?.tagName === 'INPUT') {
+        return // Allow normal space bar behavior in input fields
+      }
+      
       if (e.key === 'Escape') {
         navigateBack()
       }

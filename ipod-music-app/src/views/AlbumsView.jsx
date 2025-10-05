@@ -7,6 +7,7 @@ import './AlbumsView.css'
 
 function AlbumsView() {
   const [albumType, setAlbumType] = useState('user') // 'user' or 'popular'
+  const { navigateTo } = useNavigationStore()
   
   // Fetch albums from configured services with infinite scroll
   const {
@@ -34,7 +35,7 @@ function AlbumsView() {
     localStorage.setItem('selectedAlbum', JSON.stringify(album))
     
     // Navigate to album details view
-    useNavigationStore.getState().navigateTo('albumDetails')
+    navigateTo('albumDetails')
   }
   
   const handleLoadMore = () => {

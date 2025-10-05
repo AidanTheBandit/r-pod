@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigationStore } from '../store/navigationStore'
 import { useServiceStore } from '../store/serviceStore'
 import { useArtists } from '../hooks/useMusicData'
 import ListView from '../components/ListView'
@@ -6,6 +7,7 @@ import './ArtistsView.css'
 
 function ArtistsView() {
   const [artistType, setArtistType] = useState('user') // 'user' or 'popular'
+  const { navigateTo } = useNavigationStore()
   
   // Fetch artists from configured services with infinite scroll
   const {
@@ -34,7 +36,7 @@ function ArtistsView() {
     localStorage.setItem('selectedArtist', JSON.stringify(artist))
     
     // Navigate to artist details view
-    useNavigationStore.getState().navigateTo('artistDetails')
+    navigateTo('artistDetails')
   }
   
   const handleLoadMore = () => {
