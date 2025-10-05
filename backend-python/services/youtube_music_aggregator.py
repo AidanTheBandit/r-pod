@@ -1423,7 +1423,7 @@ class YouTubeMusicAggregator(BaseMusicService):
         return tracks
     
     def _get_best_thumbnail(self, thumbnails: List[Dict[str, Any]]) -> Optional[str]:
-        """Get the highest quality thumbnail URL"""
+        """Get the highest quality thumbnail URL, with enhancement for YouTube thumbnails"""
         if not thumbnails:
             return None
         
@@ -1434,7 +1434,40 @@ class YouTubeMusicAggregator(BaseMusicService):
             reverse=True
         )
         
-        return sorted_thumbs[0].get('url')
+        best_url = sorted_thumbs[0].get('url')
+        
+        # Try to enhance YouTube/Google Photos thumbnail quality
+        if best_url and ('ytimg.com' in best_url or 'googleusercontent.com' in best_url):
+            try:
+                # For YouTube thumbnails, try to get maxresdefault if we have a video ID
+                if 'ytimg.com/vi/' in best_url:
+                    # Extract video ID from URL like https://img.youtube.com/vi/VIDEO_ID/hqdefault.jpg
+                    import re
+                    match = re.search(r'ytimg\.com/vi/([^/]+)/', best_url)
+                    if match:
+                        video_id = match.group(1)
+                        # Try maxresdefault first (highest quality)
+                        maxres_url = f'https://img.youtube.com/vi/{video_id}/maxresdefault.jpg'
+                        return maxres_url
+                
+                # For Google Photos style URLs, try to increase resolution
+                elif 'googleusercontent.com' in best_url:
+                    # URLs like https://lh3.googleusercontent.com/...=w60-h60...
+                    # Try to change to higher resolution
+                    enhanced_url = re.sub(r'=w\d+-h\d+', '=w1200-h1200', best_url)
+                    if enhanced_url != best_url:
+                        return enhanced_url
+                        
+                    # If no dimensions specified, try adding high resolution
+                    if '=' in best_url and not best_url.endswith('=w1200-h1200'):
+                        base_url = best_url.split('=')[0]
+                        return f"{base_url}=w1200-h1200"
+            
+            except Exception as e:
+                logger.warning(f"[YTM] Failed to enhance thumbnail URL: {e}")
+                # Fall back to original best URL
+        
+        return best_url
         """Map YouTube Music track to standard format"""
         try:
             video_id = track.get("videoId")

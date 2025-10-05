@@ -2,8 +2,8 @@ import axios from 'axios'
 import Cookies from 'js-cookie'
 
 // Default configuration
-let BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
-let BACKEND_PASSWORD = import.meta.env.VITE_BACKEND_PASSWORD || 'music-aggregator-2025'
+let BACKEND_URL = import.meta.env.VITE_BACKEND_URL || ''
+let BACKEND_PASSWORD = import.meta.env.VITE_BACKEND_PASSWORD || 'ytm-secure-2025-r1'
 
 // Allow dynamic configuration
 export const updateBackendConfig = (url, password) => {

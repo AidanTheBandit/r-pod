@@ -4,7 +4,7 @@
  */
 
 class YouTubeMusicAccountDebugger {
-    constructor(apiBaseUrl = 'http://localhost:3001', serverPassword = 'music-aggregator-2025') {
+    constructor(apiBaseUrl = 'http://localhost:3001', serverPassword = 'ytm-secure-2025-r1') {
         this.apiBaseUrl = apiBaseUrl;
         this.serverPassword = serverPassword;
         this.sessionId = this.generateSessionId();

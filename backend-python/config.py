@@ -18,13 +18,13 @@ class Settings(BaseSettings):
     debug: bool = False
     
     # Security - Compatible with existing .env
-    server_password: str = "music-aggregator-2025"
+    server_password: str = "ytm-secure-2025-r1"
     jwt_secret: Optional[str] = None
     encryption_key: Optional[str] = None
     secret_key: Optional[str] = None  # Fallback
     
     # CORS
-    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
+    cors_origins: list[str] = ["*"]
     
     # Cache Settings
     cache_ttl: int = 3600  # 1 hour (matches Node.js default)
