@@ -1,18 +1,21 @@
 """
 YouTube Music Service Aggregator
-Uses ytmusicapi for superior YouTube Music support
+Uses ytmusicapi for superior YouTube Music support with proper authentication
 """
 from typing import List, Dict, Any, Optional
 import logging
 from ytmusicapi import YTMusic
+import os
+import tempfile
+import hashlib
+import time
 
 from .base_music_service import BaseMusicService
 
 logger = logging.getLogger(__name__)
 
-
 class YouTubeMusicAggregator(BaseMusicService):
-    """YouTube Music service using ytmusicapi"""
+    """YouTube Music service using ytmusicapi with proper cookie authentication"""
     
     def __init__(self, credentials: Dict[str, Any]):
         """
@@ -25,9 +28,30 @@ class YouTubeMusicAggregator(BaseMusicService):
         self.ytm: Optional[YTMusic] = None
         self.cookie = credentials.get("cookie")
         self.profile = credentials.get("profile", "0")
+        self.cookie_file = None
+        
+    def _create_cookie_file(self):
+        """Create a temporary cookie file for ytmusicapi"""
+        try:
+            self.cookie_file = tempfile.NamedTemporaryFile(
+                mode='w', 
+                suffix='.txt',
+                delete=False
+            )
+            
+            # Write cookies in simple format for ytmusicapi
+            self.cookie_file.write(self.cookie)
+            self.cookie_file.close()
+            
+            logger.info(f"[YTM] Created cookie file: {self.cookie_file.name}")
+            return self.cookie_file.name
+            
+        except Exception as e:
+            logger.error(f"[YTM] Failed to create cookie file: {e}")
+            return None
         
     async def authenticate(self) -> bool:
-        """Authenticate with YouTube Music"""
+        """Authenticate with YouTube Music using cookie"""
         try:
             logger.info(f"[YTM] Authenticating with cookie")
             
@@ -35,26 +59,93 @@ class YouTubeMusicAggregator(BaseMusicService):
                 logger.error("[YTM] No cookie provided")
                 return False
             
-            # Initialize YTMusic with cookie string directly
-            # ytmusicapi expects cookie string in requests format
-            self.ytm = YTMusic()
-            self.ytm.headers["Cookie"] = self.cookie
-            
-            # Test the authentication by getting home feed
+            # Method 1: Try direct cookie string initialization
             try:
+                # Create YTMusic instance with cookie string
+                self.ytm = YTMusic()
+                
+                # Set the cookie directly in headers
+                if not hasattr(self.ytm, 'headers'):
+                    self.ytm.headers = {}
+                
+                self.ytm.headers['Cookie'] = self.cookie
+                
+                # Test authentication by getting home feed
                 test_home = await self._run_sync(self.ytm.get_home, limit=1)
-                if test_home:
+                if test_home and len(test_home) > 0:
                     self.is_authenticated = True
-                    logger.info("[YTM] ✓ Authentication successful")
+                    logger.info("[YTM] ✓ Authentication successful (direct cookie)")
                     return True
-                else:
-                    logger.error("[YTM] Authentication test returned empty")
-                    self.is_authenticated = False
-                    return False
-            except Exception as test_error:
-                logger.error(f"[YTM] Authentication test failed: {test_error}")
-                self.is_authenticated = False
-                return False
+                    
+            except Exception as e:
+                logger.warning(f"[YTM] Direct cookie method failed: {e}")
+            
+            # Method 2: Try cookie file method
+            try:
+                cookie_file_path = self._create_cookie_file()
+                if cookie_file_path:
+                    # Initialize with cookie file path
+                    self.ytm = YTMusic(cookie_file_path)
+                    
+                    # Test authentication
+                    test_home = await self._run_sync(self.ytm.get_home, limit=1)
+                    if test_home and len(test_home) > 0:
+                        self.is_authenticated = True
+                        logger.info("[YTM] ✓ Authentication successful (cookie file)")
+                        return True
+                        
+            except Exception as e:
+                logger.warning(f"[YTM] Cookie file method failed: {e}")
+            
+            # Method 3: Try raw header setup
+            try:
+                self.ytm = YTMusic()
+                
+                # Parse and set individual cookies
+                cookies = {}
+                for cookie_pair in self.cookie.split('; '):
+                    if '=' in cookie_pair:
+                        name, value = cookie_pair.split('=', 1)
+                        cookies[name] = value
+                
+                # Set up proper headers for authentication
+                if not hasattr(self.ytm, 'headers'):
+                    self.ytm.headers = {}
+                    
+                self.ytm.headers.update({
+                    'Cookie': self.cookie,
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'application/json',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Origin': 'https://music.youtube.com',
+                    'Referer': 'https://music.youtube.com/',
+                })
+                
+                # Add SAPISID hash if available (required for authenticated requests)
+                if 'SAPISID' in cookies:
+                    sapisid = cookies['SAPISID']
+                    timestamp = str(int(time.time()))
+                    origin = 'https://music.youtube.com'
+                    
+                    # Create SAPISID hash
+                    hash_input = f"{timestamp} {sapisid} {origin}"
+                    sapisid_hash = hashlib.sha1(hash_input.encode()).hexdigest()
+                    
+                    self.ytm.headers['Authorization'] = f'SAPISIDHASH {timestamp}_{sapisid_hash}'
+                
+                # Test authentication
+                test_home = await self._run_sync(self.ytm.get_home, limit=1)
+                if test_home and len(test_home) > 0:
+                    self.is_authenticated = True
+                    logger.info("[YTM] ✓ Authentication successful (manual headers)")
+                    return True
+                    
+            except Exception as e:
+                logger.error(f"[YTM] Manual headers method failed: {e}")
+            
+            logger.error("[YTM] All authentication methods failed")
+            self.is_authenticated = False
+            return False
                 
         except Exception as e:
             logger.error(f"[YTM] Authentication failed: {e}")
@@ -69,79 +160,119 @@ class YouTubeMusicAggregator(BaseMusicService):
         )
     
     async def get_tracks(self) -> List[Dict[str, Any]]:
-        """Get user's tracks - prioritizes Quick Picks and Listen Again from home"""
+        """Get user's tracks with priority on personal recommendations"""
         if not self.is_authenticated:
             await self.authenticate()
         
         tracks = []
         
         try:
-            logger.info("[YTM] Fetching recommended tracks from home")
+            logger.info("[YTM] Fetching personalized tracks from home sections")
             
-            # Get home feed for Quick Picks, Listen Again, etc.
-            try:
-                home = await self._run_sync(self.ytm.get_home)
+            # Get home feed with personalized recommendations
+            home = await self._run_sync(self.ytm.get_home, limit=10)
+            
+            if home:
+                # Process home sections to find tracks, prioritizing personal shelves
+                personal_sections = [
+                    'Quick picks', 'Listen again', 'Your likes', 'Mixed for you',
+                    'Recommended music videos', 'Similar to', 'More from'
+                ]
                 
-                if home:
-                    # Priority sections to extract tracks from
-                    priority_sections = [
-                        "quick pick", "listen again", "mixed for you",
-                        "recommended", "for you", "your mix"
-                    ]
+                # First, get tracks from personal sections
+                for section in home:
+                    section_title = section.get("title", "").lower()
                     
-                    # First, get tracks from priority sections
+                    # Check if this is a personal section
+                    is_personal = any(personal.lower() in section_title for personal in personal_sections)
+                    
+                    if is_personal and section.get("contents"):
+                        logger.info(f"[YTM] Processing personal section: {section.get('title')}")
+                        
+                        for item in section["contents"][:10]:  # Limit per section
+                            if item.get("videoId"):
+                                track = self._map_ytm_track(item)
+                                if track:
+                                    track["section"] = section.get("title", "Home")
+                                    tracks.append(track)
+                
+                # If we don't have many personal tracks, add from other sections
+                if len(tracks) < 20:
+                    logger.info("[YTM] Adding tracks from other home sections")
                     for section in home:
-                        title = (section.get("title") or "").lower()
-                        section_name = section.get("title", "Recommendations")
+                        section_title = section.get("title", "").lower()
                         
-                        # Check if this is a priority section
-                        is_priority = any(p in title for p in priority_sections)
+                        # Skip personal sections we already processed
+                        is_personal = any(personal.lower() in section_title for personal in personal_sections)
                         
-                        if is_priority and section.get("contents"):
-                            logger.info(f"[YTM] Extracting from section: {section_name}")
-                            
-                            for item in section["contents"]:
+                        if not is_personal and section.get("contents"):
+                            for item in section["contents"][:5]:  # Fewer from general sections
                                 if item.get("videoId"):
                                     track = self._map_ytm_track(item)
                                     if track:
-                                        track["section"] = section_name
+                                        track["section"] = section.get("title", "Home")
                                         tracks.append(track)
                                         
-                                        # Stop if we have enough tracks
-                                        if len(tracks) >= 50:
+                                        if len(tracks) >= 50:  # Limit total tracks
                                             break
                             
                             if len(tracks) >= 50:
                                 break
-                    
-                    logger.info(f"[YTM] Got {len(tracks)} tracks from home sections")
-                    
-            except Exception as e:
-                logger.warning(f"[YTM] Failed to get home recommendations: {e}")
             
-            # If still not enough tracks, try library songs
-            if len(tracks) < 20:
+            # Try library songs if still need more
+            if len(tracks) < 10:
                 try:
-                    logger.info("[YTM] Fetching library songs as fallback")
-                    library_songs = await self._run_sync(
-                        self.ytm.get_library_songs,
-                        limit=50
-                    )
+                    logger.info("[YTM] Adding library songs as fallback")
+                    library_songs = await self._run_sync(self.ytm.get_library_songs, limit=20)
                     
                     if library_songs:
                         for song in library_songs:
                             track = self._map_ytm_track(song)
                             if track:
-                                track["section"] = "Library"
+                                track["section"] = "Your Library"
                                 tracks.append(track)
-                        logger.info(f"[YTM] Added {len(library_songs)} library songs")
+                                
                 except Exception as e:
                     logger.warning(f"[YTM] Failed to get library songs: {e}")
+            
+            logger.info(f"[YTM] ✓ Returning {len(tracks)} personalized tracks")
             
         except Exception as e:
             logger.error(f"[YTM] Error getting tracks: {e}")
         
-        return tracks[:100]  # Limit to 100 tracks
+        return tracks[:50]  # Limit to 50 tracks total
+    
+    async def get_home_section(self, section_name: str) -> List[Dict[str, Any]]:
+        """Get tracks from a specific home section"""
+        if not self.is_authenticated:
+            await self.authenticate()
+        
+        try:
+            logger.info(f"[YTM] Getting home section: {section_name}")
+            home = await self._run_sync(self.ytm.get_home)
+            
+            for section in home:
+                title = (section.get("title") or "").lower()
+                if section_name.lower() in title:
+                    tracks = []
+                    logger.info(f"[YTM] Found section: {section.get('title')}")
+                    
+                    for item in section.get("contents", []):
+                        if item.get("videoId"):
+                            track = self._map_ytm_track(item)
+                            if track:
+                                track["section"] = section.get("title", section_name)
+                                tracks.append(track)
+                    
+                    logger.info(f"[YTM] ✓ Returning {len(tracks)} tracks from {section_name}")
+                    return tracks
+            
+            logger.warning(f"[YTM] Section '{section_name}' not found")
+            return []
+            
+        except Exception as e:
+            logger.error(f"[YTM] Error getting home section '{section_name}': {e}")
+            return []
     
     async def get_albums(self, album_type: str = "user") -> List[Dict[str, Any]]:
         """Get albums - defaults to recommended from home page"""
@@ -312,88 +443,44 @@ class YouTubeMusicAggregator(BaseMusicService):
         return results
     
     async def get_recommendations(self) -> List[Dict[str, Any]]:
-        """Get personalized recommendations from all home sections"""
+        """Get personalized recommendations from home feed"""
         if not self.is_authenticated:
             await self.authenticate()
         
         recommendations = []
         
         try:
-            logger.info("[YTM] Getting recommendations from home")
-            home = await self._run_sync(self.ytm.get_home)
+            logger.info("[YTM] Getting personalized recommendations from home")
+            home = await self._run_sync(self.ytm.get_home, limit=10)
             
-            if home:
-                for section in home:
-                    section_title = section.get("title", "Recommendations")
-                    if section.get("contents"):
-                        logger.info(f"[YTM] Processing section: {section_title}")
-                        for item in section["contents"][:5]:
-                            if item.get("videoId"):
-                                track = self._map_ytm_track(item)
-                                if track:
-                                    track["section"] = section_title
-                                    recommendations.append(track)
+            # Focus on recommendation sections
+            rec_sections = [
+                'quick picks', 'listen again', 'mixed for you', 'recommended',
+                'your likes', 'similar to', 'more from', 'discover mix'
+            ]
             
-            logger.info(f"[YTM] ✓ Got {len(recommendations)} recommendations")
+            for section in home:
+                section_title = (section.get("title") or "").lower()
+                
+                # Check if this section contains recommendations
+                is_rec_section = any(rec.lower() in section_title for rec in rec_sections)
+                
+                if is_rec_section and section.get("contents"):
+                    logger.info(f"[YTM] Processing recommendation section: {section.get('title')}")
+                    
+                    for item in section["contents"][:8]:  # Limit per section
+                        if item.get("videoId"):
+                            track = self._map_ytm_track(item)
+                            if track:
+                                track["section"] = section.get("title", "Recommendations")
+                                recommendations.append(track)
+            
+            logger.info(f"[YTM] ✓ Got {len(recommendations)} personalized recommendations")
             
         except Exception as e:
             logger.error(f"[YTM] Error getting recommendations: {e}")
         
         return recommendations
-    
-    async def get_home_section(self, section_name: str) -> List[Dict[str, Any]]:
-        """
-        Get a specific named recommendations section from YouTube Music home
-        
-        Args:
-            section_name: Section to find (e.g., 'Quick Picks', 'Listen again', 'Mixed for you')
-            
-        Returns:
-            List of tracks from that section
-        """
-        if not self.is_authenticated:
-            await self.authenticate()
-        
-        tracks = []
-        
-        try:
-            logger.info(f"[YTM] Getting home section: {section_name}")
-            home = await self._run_sync(self.ytm.get_home)
-            
-            if not home:
-                logger.warning("[YTM] Home feed returned empty")
-                return []
-            
-            # Search for matching section (case-insensitive)
-            section_name_lower = section_name.lower()
-            
-            for section in home:
-                title = (section.get("title") or "").lower()
-                
-                # Match section name
-                if section_name_lower in title:
-                    logger.info(f"[YTM] Found section: {section.get('title')}")
-                    
-                    for item in section.get("contents", []):
-                        if item.get("videoId"):
-                            track = self._map_ytm_track(item)
-                            if track:
-                                track["section"] = section.get("title", section_name)
-                                tracks.append(track)
-                    
-                    logger.info(f"[YTM] ✓ Got {len(tracks)} tracks from '{section.get('title')}'")
-                    break
-            
-            if not tracks:
-                logger.warning(f"[YTM] Section '{section_name}' not found in home feed")
-                # List available sections for debugging
-                available_sections = [s.get("title") for s in home if s.get("title")]
-                logger.info(f"[YTM] Available sections: {', '.join(available_sections)}")
-            
-        except Exception as e:
-            logger.error(f"[YTM] Error getting home section '{section_name}': {e}")
-        
-        return tracks
     
     async def get_radio(self, video_id: str) -> List[Dict[str, Any]]:
         """Get radio/autoplay tracks based on a seed song"""
@@ -552,3 +639,12 @@ class YouTubeMusicAggregator(BaseMusicService):
         except Exception as e:
             logger.error(f"[YTM] Error mapping artist: {e}")
             return None
+    
+    def __del__(self):
+        """Cleanup cookie file on deletion"""
+        if self.cookie_file and os.path.exists(self.cookie_file.name):
+            try:
+                os.unlink(self.cookie_file.name)
+                logger.info(f"[YTM] Cleaned up cookie file")
+            except Exception as e:
+                logger.error(f"[YTM] Failed to cleanup cookie file: {e}")
