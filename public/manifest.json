@@ -1,0 +1,17 @@
+{
+  "name": "iPod Music Player",
+  "short_name": "iPod Music",
+  "description": "iPod-style music player for R1 device",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#e8f0f7",
+  "theme_color": "#5a9fd4",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

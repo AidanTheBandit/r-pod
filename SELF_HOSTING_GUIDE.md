@@ -145,6 +145,17 @@ CORS_ORIGINS=["*"]
 8. **Copy the entire `cookie:` value** (very long string)
 9. **Paste into** `YOUTUBE_MUSIC_COOKIE` in your `.env`
 
+### Adding Your App Icon
+
+1. **Replace the placeholder**: Replace `/public/icon.png.placeholder` with your actual `icon.png` file
+2. **Icon specifications**:
+   - Format: PNG, JPG, or SVG
+   - Size: Square image (recommended: 512x512px)
+   - Usage: Favicon, app icon, PWA icon
+3. **Automatic serving**: Vite will automatically serve the icon at `https://yourdomain.com/icon.png`
+
+The app includes PWA (Progressive Web App) support, so users can install it on their devices with your custom icon.
+
 ### Testing Backend
 
 ```bash

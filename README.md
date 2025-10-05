@@ -215,6 +215,9 @@ npm run host-both    # Host both services
 │   ├── main.py          # FastAPI application
 │   └── requirements.txt  # Python dependencies
 ├── dist/                 # Production frontend build
+├── public/               # Static assets (add icon.png here)
+│   ├── icon.png         # App icon and favicon
+│   └── manifest.json    # PWA manifest
 ├── SELF_HOSTING_GUIDE.md # Detailed hosting guide
 ├── setup.sh             # Automated setup script
 ├── cleanup.sh           # Production optimization

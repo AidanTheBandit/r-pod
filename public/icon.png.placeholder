@@ -1,0 +1,28 @@
+# Icon.png Placeholder
+
+This is where you should place your actual `icon.png` image file.
+
+## Instructions:
+
+1. Replace this file with your actual `icon.png` image file
+2. The icon should be a square image (recommended: 512x512px or 256x256px)
+3. Supported formats: PNG, JPG, SVG
+4. This will be served as the favicon and app icon
+
+## File location:
+`/public/icon.png`
+
+## Usage:
+- Favicon for the website
+- App icon when added to home screen on mobile devices
+- Icon in browser tabs
+- PWA (Progressive Web App) icon
+
+## Also in this directory:
+- `manifest.json` - PWA configuration (automatically configured)
+
+## After adding your icon:
+- The icon will be automatically served by Vite
+- Accessible at: `https://yourdomain.com/icon.png`
+- Referenced in the HTML as the favicon
+- Used in the PWA manifest for home screen installation
