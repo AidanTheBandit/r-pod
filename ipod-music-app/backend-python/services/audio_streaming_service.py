@@ -1,7 +1,171 @@
 """
-Audio Streaming Service using yt-dlp
-Extracts and serves audio URLs from YouTube Music and other sources
+Audio Streaming Service
+Handles YouTube audio streaming using yt-dlp
 """
+import logging
+from typing import Dict, Any, Optional
+import yt_dlp
+import os
+import tempfile
+
+logger = logging.getLogger(__name__)
+
+
+class AudioStreamingService:
+    """Service for streaming YouTube audio"""
+    
+    def __init__(self, cookie: Optional[str] = None):
+        """
+        Initialize the audio streaming service
+        
+        Args:
+            cookie: YouTube Music cookie string for authentication
+        """
+        self.cache = {}  # Simple in-memory cache for stream URLs
+        self.cookie = cookie
+        self.cookie_file = None
+        
+        # Create cookie file if cookie provided
+        if self.cookie:
+            self._create_cookie_file()
+    
+    def _create_cookie_file(self):
+        """Create a temporary cookie file for yt-dlp"""
+        try:
+            # Create temp file for cookies in Netscape format
+            self.cookie_file = tempfile.NamedTemporaryFile(
+                mode='w', 
+                suffix='.txt',
+                delete=False
+            )
+            
+            # Parse cookie string and write in Netscape format
+            # Format: .domain.com	TRUE	/	FALSE	0	name	value
+            cookie_pairs = self.cookie.split('; ')
+            
+            # Write Netscape cookie header
+            self.cookie_file.write("# Netscape HTTP Cookie File\n")
+            
+            for pair in cookie_pairs:
+                if '=' in pair:
+                    name, value = pair.split('=', 1)
+                    # Write cookie in Netscape format
+                    self.cookie_file.write(
+                        f".youtube.com\tTRUE\t/\tTRUE\t0\t{name}\t{value}\n"
+                    )
+            
+            self.cookie_file.close()
+            logger.info(f"[AudioStream] Created cookie file: {self.cookie_file.name}")
+            
+        except Exception as e:
+            logger.error(f"[AudioStream] Failed to create cookie file: {e}")
+            self.cookie_file = None
+        
+    async def get_stream_url(self, video_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get the direct stream URL for a YouTube video
+        
+        Args:
+            video_id: YouTube video ID
+            
+        Returns:
+            Dictionary with stream info or None
+        """
+        try:
+            logger.info(f"[AudioStream] Getting stream URL for: {video_id}")
+            
+            # yt-dlp options for best audio
+            ydl_opts = {
+                'format': 'bestaudio/best',
+                'quiet': True,
+                'no_warnings': True,
+                'extract_flat': False,
+                'nocheckcertificate': True,
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'en-us,en;q=0.5',
+                    'Sec-Fetch-Mode': 'navigate',
+                },
+            }
+            
+            # Add cookie file if available
+            if self.cookie_file and os.path.exists(self.cookie_file.name):
+                ydl_opts['cookiefile'] = self.cookie_file.name
+                logger.info(f"[AudioStream] Using cookie file for authentication")
+            
+            # Use YouTube Music URL if cookie is available
+            if self.cookie:
+                url = f"https://music.youtube.com/watch?v={video_id}"
+            else:
+                url = f"https://www.youtube.com/watch?v={video_id}"
+            
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                
+                if not info:
+                    logger.error(f"[AudioStream] No info returned for {video_id}")
+                    return None
+                
+                # Get formats
+                formats = info.get('formats', [])
+                
+                if not formats:
+                    logger.error(f"[AudioStream] No formats available for {video_id}")
+                    return None
+                
+                # Filter audio-only formats
+                audio_formats = [
+                    f for f in formats 
+                    if f.get('acodec') != 'none' and f.get('vcodec') == 'none'
+                ]
+                
+                if not audio_formats:
+                    logger.warning(f"[AudioStream] No audio-only formats, using all formats")
+                    audio_formats = formats
+                
+                # Sort by quality (prefer higher bitrate)
+                # Handle None values in bitrate comparison
+                audio_formats.sort(
+                    key=lambda x: (x.get("abr") or x.get("tbr") or 0),
+                    reverse=True
+                )
+                
+                best_format = audio_formats[0]
+                
+                stream_url = best_format.get('url')
+                
+                if not stream_url:
+                    logger.error(f"[AudioStream] No stream URL in format")
+                    return None
+                
+                logger.info(f"[AudioStream] ✓ Got stream URL (format: {best_format.get('format_id')}, bitrate: {best_format.get('abr')})")
+                
+                return {
+                    'url': stream_url,
+                    'format_id': best_format.get('format_id'),
+                    'ext': best_format.get('ext'),
+                    'bitrate': best_format.get('abr') or best_format.get('tbr'),
+                    'duration': info.get('duration'),
+                    'title': info.get('title')
+                }
+                
+        except Exception as e:
+            logger.error(f"[AudioStream] Error: {e}")
+            return None
+    
+    def __del__(self):
+        """Cleanup cookie file on deletion"""
+        if self.cookie_file and os.path.exists(self.cookie_file.name):
+            try:
+                os.unlink(self.cookie_file.name)
+                logger.info(f"[AudioStream] Cleaned up cookie file")
+            except Exception as e:
+                logger.error(f"[AudioStream] Failed to cleanup cookie file: {e}")
+
+
+# Global singleton - will be initialized with cookie in main.py
+audio_streaming_service = None
 import logging
 from typing import Optional, Dict, Any
 import asyncio
@@ -27,44 +191,46 @@ class AudioStreamingService:
             'default_search': 'auto',
         }
     
-    async def get_stream_url(
-        self, 
-        video_id: str,
-        use_cache: bool = True
-    ) -> Optional[Dict[str, Any]]:
-        """
-        Get streamable audio URL for a video
-        
-        Args:
-            video_id: YouTube video ID
-            use_cache: Whether to use cached results
-            
-        Returns:
-            Dictionary with stream info or None if failed
-        """
+    async def get_stream_url(self, video_id: str) -> Optional[Dict[str, Any]]:
+        """Get streaming URL for a YouTube video using yt-dlp"""
         try:
             logger.info(f"[AudioStream] Getting stream URL for: {video_id}")
             
-            # Try multiple URL patterns
-            urls = [
-                f"https://music.youtube.com/watch?v={video_id}",
-                f"https://www.youtube.com/watch?v={video_id}",
-            ]
+            # yt-dlp options for audio extraction with better headers
+            ydl_opts = {
+                'format': 'bestaudio/best',
+                'quiet': True,
+                'no_warnings': True,
+                'extract_flat': False,
+                'socket_timeout': 10,
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'en-us,en;q=0.5',
+                    'Sec-Fetch-Mode': 'navigate'
+                }
+            }
             
-            for url in urls:
-                try:
-                    info = await self._extract_info(url)
-                    if info:
-                        return self._format_stream_info(info)
-                except Exception as e:
-                    logger.warning(f"[AudioStream] Failed with URL {url}: {e}")
-                    continue
+            url = f"https://www.youtube.com/watch?v={video_id}"
             
-            logger.error(f"[AudioStream] All URLs failed for: {video_id}")
-            return None
+            # Run yt-dlp in thread pool to avoid blocking
+            loop = asyncio.get_event_loop()
+            
+            def _extract():
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    return ydl.extract_info(url, download=False)
+            
+            info = await loop.run_in_executor(None, _extract)
+            
+            if not info:
+                logger.error(f"[AudioStream] No info extracted for {video_id}")
+                return None
+            
+            # Format the stream info
+            return self._format_stream_info(info)
             
         except Exception as e:
-            logger.error(f"[AudioStream] Error getting stream: {e}")
+            logger.error(f"[AudioStream] Error getting stream URL: {e}", exc_info=True)
             return None
     
     async def _extract_info(self, url: str) -> Optional[Dict[str, Any]]:

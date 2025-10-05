@@ -10,14 +10,14 @@ import asyncio
 
 from fastapi import FastAPI, HTTPException, Depends, Header, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse, Response
 from pydantic import BaseModel
 import httpx
 
 from config import settings
 from services.youtube_music_aggregator import YouTubeMusicAggregator
 from services.spotify_aggregator import SpotifyAggregator
-from services.audio_streaming_service import audio_streaming_service
+from services.audio_streaming_service import AudioStreamingService
 
 # Configure logging
 logging.basicConfig(
@@ -29,6 +29,9 @@ logger = logging.getLogger(__name__)
 
 # Session storage
 sessions: Dict[str, Dict[str, Any]] = {}
+
+# Audio streaming service (initialized at startup)
+audio_streaming_service = None
 
 
 # Pydantic models
@@ -49,24 +52,27 @@ class SessionInfo(BaseModel):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events"""
+    global audio_streaming_service
+    
+    # Startup
     logger.info("=" * 60)
     logger.info(f"{settings.app_name} v{settings.app_version}")
     logger.info("=" * 60)
     logger.info("Environment:")
-    logger.info(f"  SERVER_PASSWORD: {'✓ Set' if settings.server_password != 'change-me-in-production' else '✗ Using default'}")
+    logger.info(f"  SERVER_PASSWORD: {'✓ Set' if settings.server_password else '✗ Not set'}")
     logger.info(f"  YOUTUBE_MUSIC_COOKIE: {'✓ Set' if settings.youtube_music_cookie else '✗ Not set'}")
     logger.info(f"  SPOTIFY_CLIENT_ID: {'✓ Set' if settings.spotify_client_id else '✗ Not set'}")
     logger.info(f"  CACHE_TTL: {settings.cache_ttl}s")
     logger.info(f"  CORS_ORIGINS: {settings.cors_origins}")
     logger.info("=" * 60)
     
-    # Start session cleanup task
-    cleanup_task = asyncio.create_task(session_cleanup_loop())
+    # Initialize audio streaming service with cookie
+    audio_streaming_service = AudioStreamingService(cookie=settings.youtube_music_cookie)
+    logger.info("Audio streaming service initialized")
     
     yield
     
-    # Cleanup
-    cleanup_task.cancel()
+    # Shutdown
     logger.info("Shutting down...")
 
 
@@ -385,13 +391,27 @@ async def get_radio(
     return {"tracks": tracks}
 
 
+@app.options("/api/stream/youtube/{videoId}")
+async def stream_youtube_options(videoId: str):
+    """Handle CORS preflight for streaming"""
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+            "Access-Control-Allow-Headers": "Range, Content-Type, X-Server-Password",
+            "Access-Control-Max-Age": "3600"
+        }
+    )
+
 @app.get("/api/stream/youtube/{videoId}")
 async def stream_youtube(
     videoId: str,
     password: Optional[str] = Query(None),
-    x_server_password: Optional[str] = Header(None)
+    x_server_password: Optional[str] = Header(None),
+    range_header: Optional[str] = Header(None, alias="Range")
 ):
-    """Stream YouTube audio - returns redirect to actual stream URL"""
+    """Stream YouTube audio - proxies via yt-dlp with proper streaming support"""
     # Check auth from query or header
     if password != settings.server_password and x_server_password != settings.server_password:
         raise HTTPException(401, "Unauthorized")
@@ -399,6 +419,7 @@ async def stream_youtube(
     try:
         logger.info(f"[Stream] Request for: {videoId}")
         
+        # Get fresh stream URL from yt-dlp
         stream_info = await audio_streaming_service.get_stream_url(videoId)
         
         if not stream_info or not stream_info.get("url"):
@@ -406,17 +427,71 @@ async def stream_youtube(
             raise HTTPException(503, "Stream URL not available")
         
         stream_url = stream_info["url"]
-        logger.info(f"[Stream] ✓ Redirecting to stream URL")
         
-        # Redirect to the actual stream URL instead of proxying
-        # This allows the browser to handle range requests and streaming properly
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url=stream_url, status_code=307)
+        # Prepare headers for Google's servers
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "*/*",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Origin": "https://music.youtube.com",
+            "Referer": "https://music.youtube.com/",
+            "Sec-Fetch-Dest": "audio",
+            "Sec-Fetch-Mode": "no-cors",
+            "Sec-Fetch-Site": "cross-site"
+        }
+        
+        # Handle range requests for seeking
+        if range_header:
+            headers["Range"] = range_header
+            logger.info(f"[Stream] Range request: {range_header}")
+        
+        # Stream the audio with proper error handling
+        async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
+            try:
+                response = await client.get(stream_url, headers=headers)
+                
+                if response.status_code == 403:
+                    logger.error(f"[Stream] 403 Forbidden - URL may have expired, refetching...")
+                    # Try to get a fresh URL
+                    stream_info = await audio_streaming_service.get_stream_url(videoId)
+                    stream_url = stream_info["url"]
+                    response = await client.get(stream_url, headers=headers)
+                
+                # Prepare response headers with CORS
+                response_headers = {
+                    "Content-Type": response.headers.get("Content-Type", "audio/webm"),
+                    "Accept-Ranges": "bytes",
+                    "Cache-Control": "no-cache",  # Don't cache, URLs expire
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+                    "Access-Control-Allow-Headers": "Range, Content-Type",
+                    "Access-Control-Expose-Headers": "Content-Length, Content-Range, Accept-Ranges"
+                }
+                
+                # Add Content-Length and Range headers if present
+                if "Content-Length" in response.headers:
+                    response_headers["Content-Length"] = response.headers["Content-Length"]
+                if "Content-Range" in response.headers:
+                    response_headers["Content-Range"] = response.headers["Content-Range"]
+                
+                content_length = len(response.content)
+                logger.info(f"[Stream] ✓ Proxying {content_length} bytes (status: {response.status_code})")
+                
+                return Response(
+                    content=response.content,
+                    status_code=response.status_code,
+                    headers=response_headers,
+                    media_type=response.headers.get("Content-Type", "audio/webm")
+                )
+                
+            except httpx.HTTPStatusError as e:
+                logger.error(f"[Stream] HTTP error {e.response.status_code}: {e}")
+                raise HTTPException(e.response.status_code, f"Stream error: {e}")
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"[Stream] Error: {e}")
+        logger.error(f"[Stream] Error: {e}", exc_info=True)
         raise HTTPException(503, f"Streaming service unavailable: {str(e)}")
 
 
