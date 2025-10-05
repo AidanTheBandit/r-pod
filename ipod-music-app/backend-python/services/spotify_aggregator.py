@@ -83,7 +83,7 @@ class SpotifyAggregator(BaseMusicService):
                     "artist": track["artists"][0]["name"] if track["artists"] else "Unknown",
                     "album": track["album"]["name"],
                     "duration": track["duration_ms"] // 1000,
-                    "albumArt": track["album"]["images"][0]["url"] if track["album"]["images"] else None,
+                    "albumArt": self._get_best_image(track["album"]["images"]) if track["album"].get("images") else None,
                     "streamUrl": track.get("preview_url"),
                     "service": "spotify"
                 })
