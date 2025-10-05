@@ -925,6 +925,37 @@ class YouTubeMusicAggregator(BaseMusicService):
                     for playlist in library_playlists:
                         mapped = self._map_ytm_playlist(playlist)
                         if mapped:
+                            # For playlists with 0 track count, try to fetch actual count
+                            # This is especially important for "Liked Music" and other system playlists
+                            if mapped.get("trackCount", 0) == 0:
+                                try:
+                                    playlist_id = playlist.get("playlistId")
+                                    # Special handling for Liked Music
+                                    if playlist_id == "LM":
+                                        liked_data = await self._run_sync(self.ytm.get_liked_songs, limit=None)
+                                        if liked_data and "tracks" in liked_data:
+                                            mapped["trackCount"] = len(liked_data["tracks"])
+                                            logger.info(f"[YTM] Updated Liked Music count: {mapped['trackCount']}")
+                                    else:
+                                        # For other playlists, fetch with limit to check if empty
+                                        playlist_data = await self._run_sync(self.ytm.get_playlist, playlist_id, limit=1)
+                                        if playlist_data and "tracks" in playlist_data:
+                                            # We only fetched 1 track, so we know there's at least 1
+                                            # For now, just mark as "has content" 
+                                            if len(playlist_data["tracks"]) > 0:
+                                                # Fetch more to get accurate count (up to 1000)
+                                                full_playlist = await self._run_sync(self.ytm.get_playlist, playlist_id, limit=1000)
+                                                if full_playlist and "tracks" in full_playlist:
+                                                    mapped["trackCount"] = len(full_playlist["tracks"])
+                                                    logger.info(f"[YTM] Updated playlist '{mapped['name']}' count: {mapped['trackCount']}")
+                                except Exception as count_err:
+                                    logger.warning(f"[YTM] Failed to get accurate count for playlist '{mapped.get('name')}': {count_err}")
+                            
+                            # Filter out empty system playlists like "Episodes for Later"
+                            if mapped.get("trackCount", 0) == 0 and playlist.get("playlistId") in ["SE", "RDTMAK"]:
+                                logger.info(f"[YTM] Skipping empty system playlist: {mapped.get('name')}")
+                                continue
+                            
                             playlists.append(mapped)
                             
             except Exception as e:
@@ -934,16 +965,23 @@ class YouTubeMusicAggregator(BaseMusicService):
             has_liked_music = any(p.get("id") == "ytm:LM" for p in playlists)
             if not has_liked_music:
                 try:
-                    liked_songs = await self._run_sync(self.ytm.get_liked_songs, limit=1)
+                    # Fetch all liked songs to get accurate count
+                    liked_songs = await self._run_sync(self.ytm.get_liked_songs, limit=None)
                     if liked_songs and "tracks" in liked_songs:
                         liked_count = len(liked_songs["tracks"])
+                        
+                        # Get thumbnail from first track if available
+                        cover_art = None
+                        if liked_count > 0 and liked_songs["tracks"][0].get("thumbnails"):
+                            cover_art = liked_songs["tracks"][0]["thumbnails"][0].get("url")
+                        
                         playlists.insert(0, {  # Insert at the beginning
                             "id": "ytm:LM",
                             "name": "Liked Music",
                             "title": "Liked Music", 
-                            "description": "Your liked songs",
+                            "description": f"Your {liked_count} liked songs",
                             "trackCount": liked_count,
-                            "coverArt": None,  # Could add a default heart icon
+                            "coverArt": cover_art,
                             "service": "youtubeMusic"
                         })
                         logger.info(f"[YTM] ✓ Added Liked Music with {liked_count} songs")
@@ -1357,12 +1395,21 @@ class YouTubeMusicAggregator(BaseMusicService):
             if playlist.get("thumbnails") and len(playlist["thumbnails"]) > 0:
                 thumbnail = playlist["thumbnails"][0].get("url")
             
+            # Get track count from various possible fields
+            track_count = playlist.get("count", 0)
+            if track_count == 0:
+                # Try alternative field names
+                track_count = playlist.get("trackCount", 0)
+            if track_count == 0 and "tracks" in playlist:
+                # If we have the full playlist data with tracks
+                track_count = len(playlist["tracks"])
+            
             return {
                 "id": f"ytm:{playlist_id}",
                 "name": playlist.get("title", "Unknown Playlist"),
                 "title": playlist.get("title", "Unknown Playlist"),
                 "description": playlist.get("description", ""),
-                "trackCount": playlist.get("count", 0),
+                "trackCount": track_count,
                 "coverArt": thumbnail,
                 "service": "youtubeMusic"
             }

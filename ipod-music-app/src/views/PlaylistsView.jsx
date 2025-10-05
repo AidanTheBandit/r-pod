@@ -23,7 +23,11 @@ function PlaylistsView() {
   // Format playlists for ListView
   const formattedPlaylists = playlists.map(playlist => ({
     ...playlist,
-    subtitle: playlist.trackCount ? `${playlist.trackCount} songs` : 'Unknown songs',
+    subtitle: playlist.trackCount > 0 
+      ? `${playlist.trackCount} song${playlist.trackCount !== 1 ? 's' : ''}` 
+      : playlist.trackCount === 0 
+        ? 'Empty playlist' 
+        : 'Loading...',
   }))
   
   const handlePlaylistClick = (playlist) => {
