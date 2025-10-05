@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigationStore } from '../store/navigationStore'
 import { useServiceStore } from '../store/serviceStore'
 import { useAlbums } from '../hooks/useMusicData'
 import ListView from '../components/ListView'
@@ -28,7 +29,12 @@ function AlbumsView() {
   
   const handleAlbumClick = (album) => {
     console.log('Album clicked:', album.title)
-    // TODO: Navigate to album details view with tracks
+    
+    // Store the selected album for the details view
+    localStorage.setItem('selectedAlbum', JSON.stringify(album))
+    
+    // Navigate to album details view
+    useNavigationStore.getState().navigateTo('albumDetails')
   }
   
   const handleLoadMore = () => {

@@ -220,6 +220,16 @@ export const backendAPI = {
     return response.data.tracks || []
   },
 
+  async getArtistAlbums(artistId) {
+    const response = await client.get(`/api/artists/${artistId}/albums`)
+    return response.data.albums || []
+  },
+
+  async getAlbumTracks(albumId) {
+    const response = await client.get(`/api/albums/${albumId}/tracks`)
+    return response.data.tracks || []
+  },
+
   async search(query, type = 'track') {
     const response = await client.get('/api/search', {
       params: { q: query, type }

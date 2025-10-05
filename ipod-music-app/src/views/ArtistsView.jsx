@@ -29,7 +29,12 @@ function ArtistsView() {
   
   const handleArtistClick = (artist) => {
     console.log('Artist clicked:', artist.name)
-    // TODO: Navigate to artist details view with albums/tracks
+    
+    // Store the selected artist for the details view
+    localStorage.setItem('selectedArtist', JSON.stringify(artist))
+    
+    // Navigate to artist details view
+    useNavigationStore.getState().navigateTo('artistDetails')
   }
   
   const handleLoadMore = () => {
