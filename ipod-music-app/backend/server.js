@@ -1,237 +1,126 @@
-import express from 'express'
-import cors from 'cors'
-import dotenv from 'dotenv'
-import axios from 'axios'
-import NodeCache from 'node-cache'
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import NodeCache from 'node-cache';
+import { SpotifyAggregator } from './services/spotifyAggregator.js';
+import { YouTubeMusicAggregator } from './services/youtubeMusicAggregator.js';
+import { SubsonicAggregator } from './services/subsonicAggregator.js';
+import { JellyfinAggregator } from './services/jellyfinAggregator.js';
 
-dotenv.config()
+dotenv.config();
 
-const app = express()
-const PORT = process.env.PORT || 3001
-const cache = new NodeCache({ stdTTL: parseInt(process.env.CACHE_TTL) || 3600 })
+const app = express();
+const PORT = process.env.PORT || 3001;
+const cache = new NodeCache({ stdTTL: parseInt(process.env.CACHE_TTL) || 600 });
+const sessions = new Map();
 
-// Middleware
-app.use(cors())
-app.use(express.json())
+// CORS configuration
+const corsOptions = {
+  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  credentials: true,
+  optionsSuccessStatus: 200
+};
 
-// Simple password authentication middleware
+app.use(cors(corsOptions));
+app.use(express.json({ limit: '10mb' }));
+
 const authenticate = (req, res, next) => {
-  const password = req.headers['x-server-password']
-  
+  const password = req.headers['x-server-password'];
   if (password !== process.env.SERVER_PASSWORD) {
-    return res.status(401).json({ error: 'Unauthorized' })
+    return res.status(401).json({ error: 'Unauthorized' });
   }
-  
-  next()
-}
+  next();
+};
 
-// Health check
+const getSession = (sessionId) => {
+  if (!sessions.has(sessionId)) {
+    sessions.set(sessionId, { services: {}, lastAccess: Date.now() });
+  }
+  return sessions.get(sessionId);
+};
+
 app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    version: '1.0.0',
-  })
-})
+  res.json({ status: 'ok', timestamp: new Date().toISOString(), sessions: sessions.size });
+});
 
-// Test connection
-app.post('/api/test-connection', authenticate, (req, res) => {
-  res.json({
-    success: true,
-    message: 'Connection successful',
-    services: {
-      spotify: !!process.env.SPOTIFY_CLIENT_ID,
-      appleMusic: !!process.env.APPLE_MUSIC_KEY_ID,
-      youtubeMusic: !!process.env.YOUTUBE_CLIENT_ID,
-    },
-  })
-})
-
-// ===========================
-// SPOTIFY ROUTES
-// ===========================
-
-// Spotify OAuth - Get authorization URL
-app.post('/api/spotify/auth-url', authenticate, (req, res) => {
-  const clientId = process.env.SPOTIFY_CLIENT_ID
-  const redirectUri = process.env.SPOTIFY_REDIRECT_URI
-  const scopes = [
-    'user-read-private',
-    'user-read-email',
-    'user-library-read',
-    'user-top-read',
-    'playlist-read-private',
-    'playlist-read-collaborative',
-    'streaming',
-  ].join(' ')
-  
-  const authUrl = 'https://accounts.spotify.com/authorize?' +
-    `client_id=${clientId}&` +
-    `response_type=code&` +
-    `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-    `scope=${encodeURIComponent(scopes)}`
-  
-  res.json({ authUrl })
-})
-
-// Spotify OAuth - Exchange code for token
-app.post('/api/spotify/token', authenticate, async (req, res) => {
+app.post('/api/services/connect', authenticate, async (req, res) => {
   try {
-    const { code } = req.body
+    const { sessionId, service, credentials } = req.body;
+    const session = getSession(sessionId);
     
-    const response = await axios.post(
-      'https://accounts.spotify.com/api/token',
-      new URLSearchParams({
-        grant_type: 'authorization_code',
-        code,
-        redirect_uri: process.env.SPOTIFY_REDIRECT_URI,
-      }),
-      {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': 'Basic ' + Buffer.from(
-            `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
-          ).toString('base64'),
-        },
-      }
-    )
-    
-    res.json({
-      accessToken: response.data.access_token,
-      refreshToken: response.data.refresh_token,
-      expiresIn: response.data.expires_in,
-    })
-  } catch (error) {
-    console.error('Spotify token error:', error)
-    res.status(500).json({ error: 'Failed to exchange token' })
-  }
-})
-
-// Spotify - Refresh token
-app.post('/api/spotify/refresh', authenticate, async (req, res) => {
-  try {
-    const { refreshToken } = req.body
-    
-    const response = await axios.post(
-      'https://accounts.spotify.com/api/token',
-      new URLSearchParams({
-        grant_type: 'refresh_token',
-        refresh_token: refreshToken,
-      }),
-      {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': 'Basic ' + Buffer.from(
-            `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
-          ).toString('base64'),
-        },
-      }
-    )
-    
-    res.json({
-      accessToken: response.data.access_token,
-      expiresIn: response.data.expires_in,
-    })
-  } catch (error) {
-    console.error('Spotify refresh error:', error)
-    res.status(500).json({ error: 'Failed to refresh token' })
-  }
-})
-
-// ===========================
-// AGGREGATION ROUTES
-// ===========================
-
-// Get all playlists from all services
-app.get('/api/playlists', authenticate, async (req, res) => {
-  try {
-    const allPlaylists = []
-    
-    // TODO: Aggregate from all enabled services
-    // This is where you'd fetch from Spotify, Apple Music, etc.
-    
-    res.json(allPlaylists)
-  } catch (error) {
-    console.error('Playlists error:', error)
-    res.status(500).json({ error: 'Failed to fetch playlists' })
-  }
-})
-
-// Get all albums from all services
-app.get('/api/albums', authenticate, async (req, res) => {
-  try {
-    const allAlbums = []
-    
-    // TODO: Aggregate from all enabled services
-    
-    res.json(allAlbums)
-  } catch (error) {
-    console.error('Albums error:', error)
-    res.status(500).json({ error: 'Failed to fetch albums' })
-  }
-})
-
-// Get all tracks from all services
-app.get('/api/tracks', authenticate, async (req, res) => {
-  try {
-    const allTracks = []
-    
-    // TODO: Aggregate from all enabled services
-    
-    res.json(allTracks)
-  } catch (error) {
-    console.error('Tracks error:', error)
-    res.status(500).json({ error: 'Failed to fetch tracks' })
-  }
-})
-
-// Search across all services
-app.get('/api/search', authenticate, async (req, res) => {
-  try {
-    const { q, type = 'track' } = req.query
-    
-    if (!q) {
-      return res.status(400).json({ error: 'Query parameter required' })
+    switch (service) {
+      case 'spotify':
+        session.services.spotify = new SpotifyAggregator(credentials);
+        break;
+      case 'youtubeMusic':
+        session.services.youtubeMusic = new YouTubeMusicAggregator(credentials);
+        await session.services.youtubeMusic.authenticate();
+        break;
+      case 'subsonic':
+      case 'navidrome':
+        session.services[service] = new SubsonicAggregator(credentials);
+        break;
+      case 'jellyfin':
+        session.services.jellyfin = new JellyfinAggregator(credentials);
+        break;
+      default:
+        return res.status(400).json({ error: 'Unknown service' });
     }
     
-    const results = []
-    
-    // TODO: Search across all enabled services
-    
-    res.json(results)
+    res.json({ success: true });
   } catch (error) {
-    console.error('Search error:', error)
-    res.status(500).json({ error: 'Failed to search' })
+    res.status(500).json({ error: error.message });
   }
-})
+});
 
-// ===========================
-// ERROR HANDLING
-// ===========================
+async function aggregate(session, method, ...args) {
+  const results = [];
+  for (const [name, service] of Object.entries(session.services)) {
+    try {
+      const data = await service[method](...args);
+      results.push(...data);
+    } catch (err) {
+      console.error(`${name} error:`, err.message);
+    }
+  }
+  return results;
+}
 
-app.use((err, req, res, next) => {
-  console.error('Error:', err)
-  res.status(500).json({
-    error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? err.message : undefined,
-  })
-})
+app.get('/api/tracks', authenticate, async (req, res) => {
+  const { sessionId } = req.query;
+  const session = getSession(sessionId);
+  const tracks = await aggregate(session, 'getTracks');
+  res.json({ tracks });
+});
 
-// ===========================
-// START SERVER
-// ===========================
+app.get('/api/albums', authenticate, async (req, res) => {
+  const { sessionId } = req.query;
+  const session = getSession(sessionId);
+  const albums = await aggregate(session, 'getAlbums');
+  res.json({ albums });
+});
+
+app.get('/api/playlists', authenticate, async (req, res) => {
+  const { sessionId } = req.query;
+  const session = getSession(sessionId);
+  const playlists = await aggregate(session, 'getPlaylists');
+  res.json({ playlists });
+});
+
+app.get('/api/artists', authenticate, async (req, res) => {
+  const { sessionId } = req.query;
+  const session = getSession(sessionId);
+  const artists = await aggregate(session, 'getArtists');
+  res.json({ artists });
+});
+
+app.get('/api/search', authenticate, async (req, res) => {
+  const { sessionId, q } = req.query;
+  const session = getSession(sessionId);
+  const results = await aggregate(session, 'search', q);
+  res.json({ results });
+});
 
 app.listen(PORT, () => {
-  console.log('🎵 iPod Music Backend Server')
-  console.log('================================')
-  console.log(`✅ Server running on port ${PORT}`)
-  console.log(`✅ Environment: ${process.env.NODE_ENV}`)
-  console.log('✅ Services configured:')
-  console.log(`   - Spotify: ${!!process.env.SPOTIFY_CLIENT_ID}`)
-  console.log(`   - Apple Music: ${!!process.env.APPLE_MUSIC_KEY_ID}`)
-  console.log(`   - YouTube Music: ${!!process.env.YOUTUBE_CLIENT_ID}`)
-  console.log('================================')
-  console.log(`Health check: http://localhost:${PORT}/health`)
-})
-
-export default app
+  console.log(`Universal Music Aggregator - http://localhost:${PORT}`);
+});

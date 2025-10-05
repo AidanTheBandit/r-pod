@@ -1,54 +1,234 @@
-# 🎵 iPod Music App for R1 Device
+# 🎵 Universal Music Aggregator for R1 Device
 
-A beautiful iPod-style music player for the Rabbit R1 device with support for multiple streaming services including Spotify, Apple Music, YouTube Music, and FOSS alternatives.
+A production-ready iPod-style music player for the Rabbit R1 device with support for multiple streaming services including Spotify, YouTube Music, Jellyfin, Navidrome, and Subsonic.
 
 ![Screenshot](metadata/screenshot.jpg)
 
 ## ✨ Features
 
-### 🎨 Classic iPod Interface
-- Authentic iPod navigation with scroll wheel support
-- Clean list-based UI optimized for 240x282px display
-- Blue selection highlights and smooth animations
-- Hardware button integration (PTT button, scroll wheel)
+### 🎨 Production-Ready iPod Interface
+- Authentic iPod navigation optimized for 240x282px R1 display
+- Clean list-based UI with blue selection highlights
+- Hardware integration (scroll wheel, PTT button)
+- No emojis or placeholders - pure text/symbol interface
 
-### 🎵 Multi-Service Support
-- **Commercial Services**: Spotify, Apple Music, YouTube Music
+### 🎵 Universal Music Aggregation
+- **Commercial Services**: Spotify, YouTube Music
 - **FOSS Services**: Jellyfin, Navidrome, Subsonic
-- **Video Services**: YouTube, Vimeo, PeerTube
-- Unified library across all services
+- **Real API Integration**: No fake data, actual service connections
+- **Unified Library**: All services aggregated into one interface
 
-### 🔐 Flexible Authentication
-- **Option 1**: Bring Your Own OAuth Keys (BYOK) - Connect directly through the UI
-- **Option 2**: Backend Server - Self-host for easier multi-service management
-- Secure credential storage using cookies
+### 🔐 Secure Authentication
+- Backend server handles all service authentication
+- Session-based credential management
+- Secure cookie storage for session persistence
+- Password-protected API endpoints
 
-### 🎧 Playback Features
-- Play, pause, skip tracks
-- Progress bar with seeking
+### 🎧 Full Playback Features
+- HTML5 audio playback with full controls
+- Progress bar with seeking capability
 - Shuffle and repeat modes
-- Queue management
-- Now Playing view with album art
+- Queue management and track navigation
+- Album art display
 
 ### 🔍 Advanced Features
-- Real-time search across all services
-- Unified library view
-- Playlist, album, and artist browsing
-- Offline caching (planned)
+- Real-time search across all connected services
+- Unified library browsing (tracks, albums, artists, playlists)
+- Service-specific configuration in settings
+- Error handling and loading states
 
-## 🚀 Quick Start
+## 🚀 Production Deployment
 
-### Prerequisites
-- Node.js 18+ and npm
-- Rabbit R1 device or development browser
-
-### Installation
+### Quick Start (Development)
 
 ```bash
-# Clone the repository
-cd ipod-music-app
-
 # Install dependencies
+npm install
+cd backend && npm install
+
+# Start backend server
+cd backend && node server.js
+
+# In another terminal, start frontend
+cd .. && npm run dev
+```
+
+### Production Build
+
+```bash
+# Build for production
+./build.sh
+
+# The 'dist' folder contains the production frontend
+# Backend runs with: node backend/server.js
+```
+
+### Docker Deployment
+
+```bash
+# Build and run with Docker Compose
+docker-compose up -d
+
+# Or build manually
+docker build -t music-aggregator ./backend
+docker run -p 3001:3001 music-aggregator
+```
+
+### Environment Configuration
+
+#### Frontend (.env.local)
+```bash
+VITE_BACKEND_URL=http://your-server.com:3001
+VITE_BACKEND_PASSWORD=your-secure-password
+```
+
+#### Backend (.env.production)
+```bash
+NODE_ENV=production
+PORT=3001
+SERVER_PASSWORD=your-secure-password
+CACHE_TTL=3600
+CORS_ORIGIN=https://your-domain.com
+```
+
+## 🔧 Service Configuration
+
+### Spotify Setup
+1. Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
+2. Create a new app
+3. Copy Client ID and Client Secret
+4. In Settings → Spotify, enter credentials
+
+### YouTube Music Setup
+1. Log into YouTube Music in Chrome
+2. Open DevTools → Network tab
+3. Filter for `browse` requests
+4. Copy the full `cookie` header value
+5. In Settings → YouTube Music, paste the cookie
+
+### FOSS Services (Jellyfin/Navidrome/Subsonic)
+1. Enter your server URL (e.g., `https://your-server.com`)
+2. Enter username and password/API key
+3. Test connection in settings
+
+## 🏗️ Architecture
+
+### Backend (Node.js/Express)
+- **Universal Aggregator**: Combines multiple music services into one API
+- **Session Management**: Per-user service connections with caching
+- **Real Service Integrations**: Direct API calls to Spotify, YouTube Music, etc.
+- **Security**: Password authentication, CORS protection
+
+### Frontend (React/Vite)
+- **iPod UI**: Authentic interface optimized for R1 device
+- **State Management**: Zustand stores for navigation, player, and services
+- **Data Fetching**: React Query for caching and background updates
+- **Real API Integration**: No mock data, connects to production backend
+
+### Key Components
+- `backendClient.js`: API client for backend communication
+- `useMusicData.js`: React Query hooks for data fetching
+- Service aggregators: Real API integrations for each service
+- Settings view: Actual service connection management
+
+## � Security
+
+- **No Credentials in Frontend**: All authentication handled server-side
+- **Session-Based**: Secure session management with automatic cleanup
+- **Password Protection**: API endpoints require authentication
+- **CORS Protection**: Configurable origin restrictions
+- **Environment Variables**: Sensitive data stored securely
+
+## 📊 API Endpoints
+
+### Authentication Required
+```
+POST /api/services/connect     # Connect a music service
+GET  /api/tracks              # Get all tracks
+GET  /api/albums              # Get all albums
+GET  /api/playlists           # Get all playlists
+GET  /api/artists             # Get all artists
+GET  /api/search?q=query      # Search across services
+```
+
+### Public
+```
+GET  /health                  # Health check
+```
+
+## 🐳 Docker Support
+
+### Single Container
+```bash
+docker build -t music-aggregator ./backend
+docker run -p 3001:3001 -e SERVER_PASSWORD=secure-password music-aggregator
+```
+
+### Docker Compose (with Nginx)
+```bash
+docker-compose --profile production up -d
+```
+
+## 🔧 Development
+
+### Project Structure
+```
+ipod-music-app/
+├── src/
+│   ├── components/           # UI components (Header, ListView)
+│   ├── views/               # Main views (Songs, Albums, Settings, etc.)
+│   ├── services/            # Backend API client
+│   ├── store/               # Zustand state management
+│   ├── hooks/               # React Query data hooks
+│   └── styles/              # CSS styles
+├── backend/
+│   ├── services/            # Service aggregators
+│   ├── server.js            # Express server
+│   └── Dockerfile           # Production container
+├── dist/                    # Production frontend build
+└── docker-compose.yml       # Multi-container setup
+```
+
+### Adding New Services
+1. Create aggregator in `backend/services/`
+2. Add to server.js service switch
+3. Update SettingsView.jsx
+4. Add to docker-compose environment
+
+## 🚨 Troubleshooting
+
+### Backend Connection Issues
+- Check `VITE_BACKEND_URL` in frontend environment
+- Verify backend server is running on correct port
+- Check CORS_ORIGIN in backend environment
+
+### Service Connection Failures
+- Verify credentials are correct
+- Check service API status
+- Review backend logs for specific errors
+
+### Playback Issues
+- Check browser audio permissions
+- Verify track URLs are accessible
+- Check network connectivity
+
+## 📝 License
+
+This project is open source. See individual service terms for usage restrictions.
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new functionality
+4. Submit a pull request
+
+## 📞 Support
+
+For issues and questions:
+- Check the troubleshooting section
+- Review backend logs for errors
+- Ensure all environment variables are set correctly
 npm install
 
 # Start development server

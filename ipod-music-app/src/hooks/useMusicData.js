@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import { musicServiceManager } from '../services/musicServiceManager'
+import { backendAPI } from '../services/backendClient'
 
 /**
- * Custom hooks for fetching music data from services
+ * Custom hooks for fetching music data from the backend aggregator
  */
 
 export function usePlaylists() {
@@ -10,13 +10,14 @@ export function usePlaylists() {
     queryKey: ['playlists'],
     queryFn: async () => {
       try {
-        return await musicServiceManager.getAllPlaylists()
+        return await backendAPI.getPlaylists()
       } catch (error) {
         console.error('Error fetching playlists:', error)
         return []
       }
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 2,
   })
 }
 
@@ -25,13 +26,14 @@ export function useAlbums() {
     queryKey: ['albums'],
     queryFn: async () => {
       try {
-        return await musicServiceManager.getAllAlbums()
+        return await backendAPI.getAlbums()
       } catch (error) {
         console.error('Error fetching albums:', error)
         return []
       }
     },
     staleTime: 5 * 60 * 1000,
+    retry: 2,
   })
 }
 
@@ -40,13 +42,14 @@ export function useArtists() {
     queryKey: ['artists'],
     queryFn: async () => {
       try {
-        return await musicServiceManager.getAllArtists()
+        return await backendAPI.getArtists()
       } catch (error) {
         console.error('Error fetching artists:', error)
         return []
       }
     },
     staleTime: 5 * 60 * 1000,
+    retry: 2,
   })
 }
 
@@ -55,13 +58,14 @@ export function useTracks() {
     queryKey: ['tracks'],
     queryFn: async () => {
       try {
-        return await musicServiceManager.getAllTracks()
+        return await backendAPI.getTracks()
       } catch (error) {
         console.error('Error fetching tracks:', error)
         return []
       }
     },
     staleTime: 5 * 60 * 1000,
+    retry: 2,
   })
 }
 
@@ -69,18 +73,19 @@ export function useSearch(query, type = 'track') {
   return useQuery({
     queryKey: ['search', query, type],
     queryFn: async () => {
-      if (!query || query.trim().length === 0) {
+      if (!query || query.trim().length < 2) {
         return []
       }
-      
+
       try {
-        return await musicServiceManager.searchAll(query, type)
+        return await backendAPI.search(query, type)
       } catch (error) {
         console.error('Error searching:', error)
         return []
       }
     },
-    enabled: query && query.trim().length > 0,
+    enabled: query && query.trim().length >= 2,
     staleTime: 2 * 60 * 1000, // 2 minutes for search results
+    retry: 1,
   })
 }
