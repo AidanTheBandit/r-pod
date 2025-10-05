@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "host-frontend": "vite build && vite preview --port ${FRONTEND_PORT:-3450} --host",
-    "host-backend": "cd backend-python && source venv/bin/activate && PORT=${BACKEND_PORT:-3451} python main.py",
+    "host-backend": "cd backend-python && . venv/bin/activate && PORT=${BACKEND_PORT:-3451} python main.py",
     "host-both": "concurrently \"FRONTEND_PORT=3450 npm run host-frontend\" \"BACKEND_PORT=3451 npm run host-backend\""
   },
   "dependencies": {
