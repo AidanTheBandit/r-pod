@@ -18,11 +18,11 @@
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding: 4vw 4vw 3vw 4vw;
+  padding: 2vw 4vw 1.5vw 4vw;
   background: #ffffff;
   overflow-y: auto;
   overflow-x: hidden;
-  gap: 2.5vw;
+  gap: 1.5vw;
   position: relative;
 }
 
@@ -64,8 +64,8 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-top: 5vw;
-  margin-bottom: 6vw;
+  margin-top: 2vw;
+  margin-bottom: 3vw;
   flex-shrink: 0;
 }
 
@@ -133,7 +133,7 @@
   padding: 0 3vw;
   display: flex;
   flex-direction: column;
-  gap: 1.5vw;
+  gap: 1vw;
   flex-shrink: 0;
 }
 
@@ -218,7 +218,7 @@
 }
 
 .status-badge {
-  padding: 1.5vw 3vw;
+  padding: 1vw 2.5vw;
   border-radius: 4vw;
   font-size: 2.8vw;
   font-weight: 600;

@@ -135,7 +135,6 @@ function NowPlayingView() {
         <div className="track-info">
           <h1 className="track-title">{currentTrack.title}</h1>
           <h2 className="track-artist">{currentTrack.artist || 'Unknown Artist'}</h2>
-          <div className="track-album">{currentTrack.album || 'Unknown Album'}</div>
         </div>
         
         {/* Time Display */}
