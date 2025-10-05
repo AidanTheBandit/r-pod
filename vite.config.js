@@ -11,13 +11,6 @@ export default defineConfig({
   preview: {
     port: 3450,
     host: true,
-    allowedHosts: [
-      'localhost',
-      '127.0.0.1',
-      'r-pod.boondit.site',
-      'boondit.site',
-      '*.boondit.site'
-    ],
   },
   build: {
     outDir: 'dist',
