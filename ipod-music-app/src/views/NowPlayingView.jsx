@@ -88,7 +88,7 @@ function NowPlayingView() {
     return (
       <div className="now-playing-view view-wrapper">
         <div className="now-playing-empty">
-          <div className="empty-icon">♪</div>
+          <div className="empty-icon">NO TRACK</div>
           <div className="empty-text">No track playing</div>
         </div>
       </div>
@@ -106,7 +106,7 @@ function NowPlayingView() {
             {currentTrack.albumArt ? (
               <img src={currentTrack.albumArt} alt={currentTrack.album} />
             ) : (
-              <div className="album-art-placeholder">♪</div>
+              <div className="album-art-placeholder">ALBUM</div>
             )}
           </div>
         </div>
@@ -145,7 +145,7 @@ function NowPlayingView() {
             tabIndex={0}
             aria-label="Previous track"
           >
-            ⏮
+            |◄
           </div>
           <div
             className="control-btn control-play"
@@ -154,7 +154,7 @@ function NowPlayingView() {
             tabIndex={0}
             aria-label={isPlaying ? 'Pause' : 'Play'}
           >
-            {isPlaying ? '⏸' : '▶'}
+            {isPlaying ? '||' : '▶'}
           </div>
           <div
             className="control-btn"
@@ -163,7 +163,7 @@ function NowPlayingView() {
             tabIndex={0}
             aria-label="Next track"
           >
-            ⏭
+            ►|
           </div>
         </div>
         
@@ -176,7 +176,7 @@ function NowPlayingView() {
             tabIndex={0}
             aria-label="Shuffle"
           >
-            🔀
+            SHUF
           </div>
           <div
             className={`control-btn-small ${repeat !== 'none' ? 'active' : ''}`}
@@ -185,7 +185,7 @@ function NowPlayingView() {
             tabIndex={0}
             aria-label="Repeat"
           >
-            {repeat === 'one' ? '🔂' : '🔁'}
+            {repeat === 'one' ? 'REP1' : repeat === 'all' ? 'REPA' : 'REP'}
           </div>
         </div>
       </div>

@@ -1,58 +1,76 @@
-import { useState } from 'react'
-import { useNavigationStore } from '../store/navigationStore'
+import { useServiceStore } from '../store/serviceStore'
+import { useAlbums } from '../hooks/useMusicData'
 import ListView from '../components/ListView'
 import './AlbumsView.css'
 
 function AlbumsView() {
-  const { navigateTo } = useNavigationStore()
+  const { hasConfiguredServices } = useServiceStore()
   
-  // Demo albums - will be replaced with real data from music services
-  const [albums] = useState([
-    {
-      id: '1',
-      title: 'Abbey Road',
-      artist: 'The Beatles',
-      year: '1969',
-      subtitle: 'The Beatles • 1969',
-    },
-    {
-      id: '2',
-      title: 'Dark Side of the Moon',
-      artist: 'Pink Floyd',
-      year: '1973',
-      subtitle: 'Pink Floyd • 1973',
-    },
-    {
-      id: '3',
-      title: 'Thriller',
-      artist: 'Michael Jackson',
-      year: '1982',
-      subtitle: 'Michael Jackson • 1982',
-    },
-    {
-      id: '4',
-      title: 'Rumours',
-      artist: 'Fleetwood Mac',
-      year: '1977',
-      subtitle: 'Fleetwood Mac • 1977',
-    },
-    {
-      id: '5',
-      title: 'Back in Black',
-      artist: 'AC/DC',
-      year: '1980',
-      subtitle: 'AC/DC • 1980',
-    },
-  ])
+  // Fetch albums from configured services
+  const { data: albums = [], isLoading, error } = useAlbums()
+  
+  // Format albums for ListView
+  const formattedAlbums = albums.map(album => ({
+    ...album,
+    subtitle: album.year ? `${album.artist} • ${album.year}` : album.artist,
+  }))
   
   const handleAlbumClick = (album) => {
     console.log('Album clicked:', album.title)
-    // TODO: Navigate to album details view
+    // TODO: Navigate to album details view with tracks
+  }
+  
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="albums-view view-wrapper">
+        <div className="loading-container">
+          <div className="loading-spinner" />
+          <div>Loading albums...</div>
+        </div>
+      </div>
+    )
+  }
+  
+  // Show error state
+  if (error) {
+    return (
+      <div className="albums-view view-wrapper">
+        <div className="error-container">
+          <div className="error-icon">!</div>
+          <div className="error-message">Failed to load albums</div>
+        </div>
+      </div>
+    )
+  }
+  
+  // Show empty state if no services configured
+  if (!hasConfiguredServices()) {
+    return (
+      <div className="albums-view view-wrapper">
+        <div className="empty-container">
+          <div className="empty-text">No services configured</div>
+          <div className="empty-subtext">Go to Settings to connect a music service</div>
+        </div>
+      </div>
+    )
+  }
+  
+  // Show empty state if no albums
+  if (formattedAlbums.length === 0) {
+    return (
+      <div className="albums-view view-wrapper">
+        <div className="empty-container">
+          <div className="empty-text">No albums found</div>
+          <div className="empty-subtext">Your library is empty</div>
+        </div>
+      </div>
+    )
   }
   
   return (
     <div className="albums-view view-wrapper">
-      <ListView items={albums} onItemClick={handleAlbumClick} />
+      <ListView items={formattedAlbums} onItemClick={handleAlbumClick} />
     </div>
   )
 }

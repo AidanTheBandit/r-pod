@@ -1,21 +1,37 @@
 import { useState } from 'react'
+import { useNavigationStore } from '../store/navigationStore'
+import { usePlayerStore } from '../store/playerStore'
+import { useSearch } from '../hooks/useMusicData'
 import ListView from '../components/ListView'
 import './SearchView.css'
 
 function SearchView() {
   const [searchQuery, setSearchQuery] = useState('')
-  const [results, setResults] = useState([])
+  const { navigateTo } = useNavigationStore()
+  const { playTrack } = usePlayerStore()
+  
+  // Fetch search results
+  const { data: results = [], isLoading } = useSearch(searchQuery, 'track')
+  
+  // Format results for ListView
+  const formattedResults = results.map(result => ({
+    ...result,
+    subtitle: `${result.artist} • ${result.album}`,
+  }))
   
   const handleSearch = (e) => {
     const query = e.target.value
     setSearchQuery(query)
-    
-    // TODO: Implement real search across music services
-    console.log('Searching for:', query)
   }
   
-  const handleResultClick = (result) => {
-    console.log('Search result clicked:', result)
+  const handleResultClick = (result, index) => {
+    console.log('Search result clicked:', result.title)
+    
+    // Play the track
+    playTrack(result, formattedResults, index)
+    
+    // Navigate to now playing
+    navigateTo('nowPlaying', true)
   }
   
   return (
@@ -31,11 +47,16 @@ function SearchView() {
         />
       </div>
       
-      {results.length > 0 ? (
-        <ListView items={results} onItemClick={handleResultClick} />
+      {isLoading ? (
+        <div className="loading-container">
+          <div className="loading-spinner" />
+          <div>Searching...</div>
+        </div>
+      ) : formattedResults.length > 0 ? (
+        <ListView items={formattedResults} onItemClick={handleResultClick} />
       ) : (
         <div className="search-empty">
-          <div className="search-empty-icon">🔍</div>
+          <div className="search-empty-icon">SEARCH</div>
           <div className="search-empty-text">
             {searchQuery ? 'No results found' : 'Enter a search query'}
           </div>

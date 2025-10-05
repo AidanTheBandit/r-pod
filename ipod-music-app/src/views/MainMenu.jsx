@@ -6,13 +6,13 @@ function MainMenu() {
   const { navigateTo } = useNavigationStore()
   
   const menuItems = [
-    { id: 'playlists', title: 'Playlists', icon: '📋', view: 'playlists' },
-    { id: 'artists', title: 'Artists', icon: '🎤', view: 'artists' },
-    { id: 'albums', title: 'Albums', icon: '💿', view: 'albums' },
-    { id: 'songs', title: 'Songs', icon: '🎵', view: 'songs' },
-    { id: 'search', title: 'Search', icon: '🔍', view: 'search' },
-    { id: 'nowPlaying', title: 'Now Playing', icon: '▶️', view: 'nowPlaying' },
-    { id: 'settings', title: 'Settings', icon: '⚙️', view: 'settings' },
+    { id: 'playlists', title: 'Playlists', view: 'playlists' },
+    { id: 'artists', title: 'Artists', view: 'artists' },
+    { id: 'albums', title: 'Albums', view: 'albums' },
+    { id: 'songs', title: 'Songs', view: 'songs' },
+    { id: 'search', title: 'Search', view: 'search' },
+    { id: 'nowPlaying', title: 'Now Playing', view: 'nowPlaying' },
+    { id: 'settings', title: 'Settings', view: 'settings' },
   ]
   
   const handleItemClick = (item) => {

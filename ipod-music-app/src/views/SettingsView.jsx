@@ -23,43 +23,36 @@ function SettingsView() {
       id: 'backend',
       title: 'Backend Server',
       subtitle: useBackendServer ? 'Connected' : 'Not configured',
-      icon: '🖥️',
     },
     {
       id: 'spotify',
       title: 'Spotify',
       subtitle: services.spotify.enabled ? 'Connected' : 'Not connected',
-      icon: '🎵',
     },
     {
       id: 'appleMusic',
       title: 'Apple Music',
       subtitle: services.appleMusic.enabled ? 'Connected' : 'Not connected',
-      icon: '🍎',
     },
     {
       id: 'youtubeMusic',
       title: 'YouTube Music',
       subtitle: services.youtubeMusic.enabled ? 'Connected' : 'Not connected',
-      icon: '▶️',
     },
     {
       id: 'jellyfin',
       title: 'Jellyfin',
       subtitle: services.jellyfin.enabled ? 'Connected' : 'Not connected',
-      icon: '📺',
     },
     {
       id: 'navidrome',
       title: 'Navidrome',
       subtitle: services.navidrome.enabled ? 'Connected' : 'Not connected',
-      icon: '🎶',
     },
     {
       id: 'subsonic',
       title: 'Subsonic',
       subtitle: services.subsonic.enabled ? 'Connected' : 'Not connected',
-      icon: '🎸',
     },
   ]
   

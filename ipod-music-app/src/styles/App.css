@@ -92,3 +92,32 @@
   background: #4a8fc4;
   transform: scale(0.95);
 }
+
+/* Empty state */
+.empty-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 5vw;
+  text-align: center;
+  color: #666;
+}
+
+.empty-text {
+  font-size: 4.5vw;
+  font-weight: 500;
+  margin-bottom: 2vh;
+}
+
+.empty-subtext {
+  font-size: 3.8vw;
+  color: #999;
+}
+
+.error-details {
+  font-size: 3.5vw;
+  color: #999;
+  margin-top: 1vh;
+}

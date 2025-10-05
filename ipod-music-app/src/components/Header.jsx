@@ -35,7 +35,7 @@ function Header() {
       </div>
       <div className="header-title">{title}</div>
       <div className="header-right">
-        <span className="battery-icon">🔋</span>
+        <span className="battery-icon">100%</span>
       </div>
     </header>
   )

@@ -1,70 +1,86 @@
-import { useState } from 'react'
 import { useNavigationStore } from '../store/navigationStore'
 import { usePlayerStore } from '../store/playerStore'
+import { useServiceStore } from '../store/serviceStore'
+import { useTracks } from '../hooks/useMusicData'
 import ListView from '../components/ListView'
 import './SongsView.css'
 
 function SongsView() {
   const { navigateTo } = useNavigationStore()
   const { playTrack } = usePlayerStore()
+  const { hasConfiguredServices } = useServiceStore()
   
-  // Demo songs - will be replaced with real data from music services
-  const [songs] = useState([
-    {
-      id: '1',
-      title: 'Across the River, Into the Trees',
-      artist: 'Artist Name',
-      album: 'Album Name',
-      duration: 225,
-      subtitle: 'Artist Name • Album Name',
-    },
-    {
-      id: '2',
-      title: 'Above All',
-      artist: 'Artist Name',
-      album: 'Album Name',
-      duration: 198,
-      subtitle: 'Artist Name • Album Name',
-    },
-    {
-      id: '3',
-      title: 'Abysmal Thoughts',
-      artist: 'Artist Name',
-      album: 'Album Name',
-      duration: 243,
-      subtitle: 'Artist Name • Album Name',
-    },
-    {
-      id: '4',
-      title: 'Abyss of Light',
-      artist: 'Artist Name',
-      album: 'Album Name',
-      duration: 212,
-      subtitle: 'Artist Name • Album Name',
-    },
-    {
-      id: '5',
-      title: 'Accountable',
-      artist: 'Artist Name',
-      album: 'Album Name',
-      duration: 189,
-      subtitle: 'Artist Name • Album Name',
-    },
-  ])
+  // Fetch songs from configured services
+  const { data: songs = [], isLoading, error } = useTracks()
+  
+  // Format songs for ListView
+  const formattedSongs = songs.map(song => ({
+    ...song,
+    subtitle: `${song.artist} • ${song.album}`,
+  }))
   
   const handleSongClick = (song, index) => {
     console.log('Song clicked:', song.title)
     
     // Play the song
-    playTrack(song, songs, index)
+    playTrack(song, formattedSongs, index)
     
     // Navigate to now playing
     navigateTo('nowPlaying', true)
   }
   
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="songs-view view-wrapper">
+        <div className="loading-container">
+          <div className="loading-spinner" />
+          <div>Loading songs...</div>
+        </div>
+      </div>
+    )
+  }
+  
+  // Show error state
+  if (error) {
+    return (
+      <div className="songs-view view-wrapper">
+        <div className="error-container">
+          <div className="error-icon">!</div>
+          <div className="error-message">Failed to load songs</div>
+          <div className="error-details">{error.message}</div>
+        </div>
+      </div>
+    )
+  }
+  
+  // Show empty state if no services configured
+  if (!hasConfiguredServices()) {
+    return (
+      <div className="songs-view view-wrapper">
+        <div className="empty-container">
+          <div className="empty-text">No services configured</div>
+          <div className="empty-subtext">Go to Settings to connect a music service</div>
+        </div>
+      </div>
+    )
+  }
+  
+  // Show empty state if no songs
+  if (formattedSongs.length === 0) {
+    return (
+      <div className="songs-view view-wrapper">
+        <div className="empty-container">
+          <div className="empty-text">No songs found</div>
+          <div className="empty-subtext">Your library is empty</div>
+        </div>
+      </div>
+    )
+  }
+  
   return (
     <div className="songs-view view-wrapper">
-      <ListView items={songs} onItemClick={handleSongClick} />
+      <ListView items={formattedSongs} onItemClick={handleSongClick} />
     </div>
   )
 }

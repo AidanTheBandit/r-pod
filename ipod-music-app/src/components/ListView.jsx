@@ -31,7 +31,6 @@ function ListView({ items, onItemClick, selectedIndex: propSelectedIndex }) {
           onClick={() => onItemClick && onItemClick(item, index)}
           data-index={index}
         >
-          {item.icon && <span className="item-icon">{item.icon}</span>}
           <div className="item-content">
             <span className="item-text">{item.title || item.name}</span>
             {item.subtitle && <span className="item-subtitle">{item.subtitle}</span>}
