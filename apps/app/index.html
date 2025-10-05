@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=240, height=320, user-scalable=no, initial-scale=1.0">
+    <title>iPod Interface - R1 Plugin</title>
+    <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+    <!-- 
+        iPod-Inspired UI for R1 Device
+        ================================
+        Main container structure:
+        - Screen display area (top portion)
+        - Navigation views (menu, now playing, albums, etc.)
+        
+        Navigation Pattern:
+        - Scroll wheel (R1 scroll wheel) to navigate up/down through lists
+        - PTT button (side button) to select/confirm
+        - Back navigation via menu option
+    -->
+    <div id="app">
+        
+        <!-- Header Bar - Shows current context and battery/time info -->
+        <header class="ipod-header">
+            <div class="header-left">
+                <span class="back-indicator" id="backIndicator">‹ Menu</span>
+            </div>
+            <div class="header-title" id="headerTitle">Music</div>
+            <div class="header-right">
+                <span class="battery-icon">🔋</span>
+            </div>
+        </header>
+
+        <!-- Main Menu View -->
+        <div class="view-container" id="mainMenu">
+            <ul class="ipod-list" id="mainMenuList">
+                <li class="list-item" data-index="0">
+                    <span class="item-text">Playlists</span>
+                    <span class="item-arrow">›</span>
+                </li>
+                <li class="list-item" data-index="1">
+                    <span class="item-text">Artists</span>
+                    <span class="item-arrow">›</span>
+                </li>
+                <li class="list-item" data-index="2">
+                    <span class="item-text">Albums</span>
+                    <span class="item-arrow">›</span>
+                </li>
+                <li class="list-item" data-index="3">
+                    <span class="item-text">Songs</span>
+                    <span class="item-arrow">›</span>
+                </li>
+                <li class="list-item" data-index="4">
+                    <span class="item-text">Genres</span>
+                    <span class="item-arrow">›</span>
+                </li>
+                <li class="list-item" data-index="5">
+                    <span class="item-text">Now Playing</span>
+                    <span class="item-arrow">›</span>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Songs List View (Example Sub-menu) -->
+        <div class="view-container hidden" id="songsView">
+            <ul class="ipod-list" id="songsList">
+                <li class="list-item" data-index="0">
+                    <span class="item-text">Across the River, Into the Trees</span>
+                    <span class="item-arrow">›</span>
+                </li>
+                <li class="list-item" data-index="1">
+                    <span class="item-text">Above All</span>
+                    <span class="item-arrow">›</span>
+                </li>
+                <li class="list-item" data-index="2">
+                    <span class="item-text">Abysmal Thoughts</span>
+                    <span class="item-arrow">›</span>
+                </li>
+                <li class="list-item" data-index="3">
+                    <span class="item-text">Abyss of Light</span>
+                    <span class="item-arrow">›</span>
+                </li>
+                <li class="list-item" data-index="4">
+                    <span class="item-text">Accountable</span>
+                    <span class="item-arrow">›</span>
+                </li>
+                <li class="list-item" data-index="5">
+                    <span class="item-text">Acedia</span>
+                    <span class="item-arrow">›</span>
+                </li>
+                <li class="list-item" data-index="6">
+                    <span class="item-text">Acoustic Dreams</span>
+                    <span class="item-arrow">›</span>
+                </li>
+                <li class="list-item" data-index="7">
+                    <span class="item-text">Afternoon Delight</span>
+                    <span class="item-arrow">›</span>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Albums List View -->
+        <div class="view-container hidden" id="albumsView">
+            <ul class="ipod-list" id="albumsList">
+                <li class="list-item" data-index="0">
+                    <span class="item-text">Abbey Road</span>
+                    <span class="item-arrow">›</span>
+                </li>
+                <li class="list-item" data-index="1">
+                    <span class="item-text">Dark Side of the Moon</span>
+                    <span class="item-arrow">›</span>
+                </li>
+                <li class="list-item" data-index="2">
+                    <span class="item-text">Thriller</span>
+                    <span class="item-arrow">›</span>
+                </li>
+                <li class="list-item" data-index="3">
+                    <span class="item-text">Rumours</span>
+                    <span class="item-arrow">›</span>
+                </li>
+                <li class="list-item" data-index="4">
+                    <span class="item-text">Back in Black</span>
+                    <span class="item-arrow">›</span>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Now Playing View -->
+        <div class="view-container hidden" id="nowPlayingView">
+            <div class="now-playing-container">
+                <!-- Album Art Display -->
+                <div class="album-art-container">
+                    <div class="album-art" id="albumArt">
+                        <div class="album-art-placeholder">♪</div>
+                    </div>
+                </div>
+                
+                <!-- Song Info -->
+                <div class="song-info">
+                    <div class="song-title" id="songTitle">Across the River, Into the Trees</div>
+                    <div class="song-artist" id="songArtist">Artist Name</div>
+                    <div class="song-album" id="songAlbum">Album Name</div>
+                </div>
+                
+                <!-- Progress Bar -->
+                <div class="progress-container">
+                    <div class="progress-time" id="currentTime">0:00</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-time" id="totalTime">3:45</div>
+                </div>
+                
+                <!-- Playback Controls (Visual Only) -->
+                <div class="playback-controls">
+                    <div class="control-btn">⏮</div>
+                    <div class="control-btn control-play" id="playPauseBtn">▶</div>
+                    <div class="control-btn">⏭</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>
