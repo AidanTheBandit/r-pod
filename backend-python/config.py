@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     app_name: str = "iPod Music Backend"
     app_version: str = "2.0.0"
     host: str = "0.0.0.0"
-    port: int = 3001
+    port: int = 3451
     node_env: str = "production"
     debug: bool = False
     

@@ -37,6 +37,238 @@ A production-ready iPod-style music player for the Rabbit R1 device with support
 - Service-specific configuration in settings
 - Error handling and loading states
 
+## 🚀 Quick Start
+
+### Automated Setup (Recommended)
+
+```bash
+# Clone and setup everything automatically
+git clone https://github.com/AidanTheBandit/r-pod.git
+cd r-pod
+
+# Run automated setup
+./setup.sh
+
+# Edit configuration files with your settings
+nano backend-python/.env
+nano .env.local
+
+# Start services
+./start.sh
+```
+
+### Manual Setup
+
+```bash
+# Install dependencies
+npm install
+cd backend-python && python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt
+
+# Configure environment
+cp backend-python/.env.example backend-python/.env
+cp .env.example .env.local
+
+# Start development server
+npm run dev
+```
+
+### Production Deployment
+
+For detailed self-hosting instructions, see **[SELF_HOSTING_GUIDE.md](./SELF_HOSTING_GUIDE.md)**
+
+```bash
+# Quick production setup
+./setup.sh
+./cleanup.sh
+npm run host-both
+```
+
+## 🏗️ Architecture
+
+### Backend (Python/FastAPI)
+- **Universal Aggregator**: Combines multiple music services into one API
+- **Session Management**: Per-user service connections with caching
+- **Real Service Integrations**: Direct API calls to Spotify, YouTube Music, etc.
+- **Security**: Password authentication, CORS protection
+
+### Frontend (React/Vite)
+- **iPod UI**: Authentic interface optimized for R1 device
+- **State Management**: Zustand stores for navigation, player, and services
+- **Data Fetching**: React Query for caching and background updates
+- **Real API Integration**: No mock data, connects to production backend
+
+### Key Components
+- `backendClient.js`: API client for backend communication
+- `useMusicData.js`: React Query hooks for data fetching
+- Service aggregators: Real API integrations for each service
+- Settings view: Actual service connection management
+
+## 🔧 Service Configuration
+
+### YouTube Music (Required)
+
+1. **Get Cookie**: Open Chrome → YouTube Music → DevTools → Network → Copy `cookie` header
+2. **Configure**: Add to `backend-python/.env`
+3. **Test**: Run account debugging to find correct profile
+
+### Spotify (Optional)
+
+1. **Create App**: [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
+2. **Configure**: Add Client ID/Secret to `.env`
+3. **Connect**: Use in-app settings
+
+### FOSS Services (Optional)
+
+- **Jellyfin**: Server URL + API Key
+- **Navidrome/Subsonic**: Server URL + credentials
+
+## 🏠 Hosting Options
+
+### Development
+```bash
+npm run host-both  # Frontend + Backend
+npm run host-frontend  # Frontend only
+npm run host-backend   # Backend only
+```
+
+### Production
+- **Systemd**: Automatic service management
+- **Docker**: Containerized deployment
+- **PM2**: Process management
+- **Cloud**: Vercel, Railway, DigitalOcean
+
+### Security
+- **HTTPS**: Required for production
+- **Password Protection**: Backend API security
+- **CORS**: Configurable origin restrictions
+- **Firewall**: UFW/iptables configuration
+
+## 🧹 Cleanup & Optimization
+
+Run the cleanup script to optimize for production:
+
+```bash
+./cleanup.sh
+```
+
+This removes:
+- Development cache files
+- Python bytecode
+- Log files
+- Git history (optional)
+- Unused documentation
+- IDE files
+
+## 📊 API Endpoints
+
+### Authentication Required
+```
+POST /api/services/connect     # Connect a music service
+GET  /api/tracks              # Get all tracks
+GET  /api/albums              # Get all albums
+GET  /api/playlists           # Get all playlists
+GET  /api/artists             # Get all artists
+GET  /api/search?q=query      # Search across services
+```
+
+### Public
+```
+GET  /health                  # Health check
+```
+
+## 🐳 Docker Support
+
+### Quick Start
+```bash
+docker-compose up -d
+```
+
+### Manual Build
+```bash
+docker build -t music-aggregator ./backend-python
+docker run -p 3001:3001 music-aggregator
+```
+
+## 🔧 Development
+
+### Available Scripts
+
+```bash
+npm run dev          # Development server
+npm run build        # Production build
+npm run preview      # Preview production build
+npm run host-frontend # Host frontend only
+npm run host-backend  # Host backend only
+npm run host-both    # Host both services
+```
+
+### Project Structure
+```
+├── src/                    # Frontend React app
+│   ├── components/        # UI components
+│   ├── views/            # Main application views
+│   ├── services/         # API integrations
+│   ├── store/            # State management
+│   └── styles/           # CSS styles
+├── backend-python/        # Python FastAPI backend
+│   ├── services/         # Service aggregators
+│   ├── main.py          # FastAPI application
+│   └── requirements.txt  # Python dependencies
+├── dist/                 # Production frontend build
+├── SELF_HOSTING_GUIDE.md # Detailed hosting guide
+├── setup.sh             # Automated setup script
+├── cleanup.sh           # Production optimization
+└── README.md
+```
+
+## 🐛 Troubleshooting
+
+### Common Issues
+- **Backend Connection**: Check `VITE_BACKEND_URL` and password
+- **Service Auth**: Verify API credentials and cookies
+- **CORS Errors**: Check backend CORS configuration
+- **Playback Issues**: Verify stream URLs and browser permissions
+
+### Debug Tools
+```bash
+# Test backend health
+curl http://localhost:3001/health
+
+# Debug YouTube Music auth
+curl "http://localhost:3001/api/debug/accounts?sessionId=test"
+
+# Check service status
+sudo systemctl status music-backend music-frontend
+```
+
+## 📝 License
+
+This project is open source. See individual service terms for usage restrictions.
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new functionality
+4. Submit a pull request
+
+## 📞 Support
+
+For issues and questions:
+- Check the [SELF_HOSTING_GUIDE.md](./SELF_HOSTING_GUIDE.md)
+- Review backend logs for errors
+- Ensure all environment variables are set correctly
+
+## 🙏 Acknowledgments
+
+- Original iPod interface inspiration
+- Rabbit R1 community for support and feedback
+- Open source music service libraries
+
+---
+
+**🎵 Made for the Rabbit R1 community**
+
 ## 🚀 Production Deployment
 
 ### Quick Start (Development)
