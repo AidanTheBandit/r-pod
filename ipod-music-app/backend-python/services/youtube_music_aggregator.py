@@ -51,97 +51,143 @@ class YouTubeMusicAggregator(BaseMusicService):
             return None
         
     async def authenticate(self) -> bool:
-        """Authenticate with YouTube Music using cookie"""
+        """Enhanced authentication with multiple fallback methods"""
         try:
-            logger.info(f"[YTM] Authenticating with cookie")
+            logger.info(f"[YTM] Starting authentication with multiple methods")
             
             if not self.cookie:
                 logger.error("[YTM] No cookie provided")
                 return False
             
-            # Method 1: Try direct cookie string initialization
-            try:
-                # Create YTMusic instance with cookie string
-                self.ytm = YTMusic()
-                
-                # Set the cookie directly in headers
-                if not hasattr(self.ytm, 'headers'):
-                    self.ytm.headers = {}
-                
-                self.ytm.headers['Cookie'] = self.cookie
-                
-                # Test authentication by getting home feed
-                test_home = await self._run_sync(self.ytm.get_home, limit=1)
-                if test_home and len(test_home) > 0:
-                    self.is_authenticated = True
-                    logger.info("[YTM] ✓ Authentication successful (direct cookie)")
-                    return True
-                    
-            except Exception as e:
-                logger.warning(f"[YTM] Direct cookie method failed: {e}")
-            
-            # Method 2: Try cookie file method
+            # Method 1: Try cookie file method (most reliable)
+            logger.info("[YTM] Method 1: Trying cookie file authentication")
             try:
                 cookie_file_path = self._create_cookie_file()
                 if cookie_file_path:
-                    # Initialize with cookie file path
                     self.ytm = YTMusic(cookie_file_path)
                     
                     # Test authentication
                     test_home = await self._run_sync(self.ytm.get_home, limit=1)
                     if test_home and len(test_home) > 0:
-                        self.is_authenticated = True
-                        logger.info("[YTM] ✓ Authentication successful (cookie file)")
-                        return True
+                        first_section = test_home[0].get("title", "").lower()
+                        personal_indicators = ['quick pick', 'listen again', 'mixed for you', 'your']
+                        is_personal = any(indicator in first_section for indicator in personal_indicators)
                         
+                        if is_personal:
+                            logger.info(f"[YTM] ✓ Cookie file auth successful - got section: {test_home[0].get('title')}")
+                        else:
+                            logger.warning(f"[YTM] ⚠ Cookie file auth successful but content may not be personal - got section: {test_home[0].get('title')}")
+                        
+                        self.is_authenticated = True
+                        return True
             except Exception as e:
                 logger.warning(f"[YTM] Cookie file method failed: {e}")
             
-            # Method 3: Try raw header setup
+            # Method 2: Try manual header setup with compression handling
+            logger.info("[YTM] Method 2: Trying manual headers with compression handling")
             try:
+                # Use the profile as the account index
+                auth_user = self.profile
+                logger.info(f"[YTM] Using account index: {auth_user}")
+                
                 self.ytm = YTMusic()
                 
-                # Parse and set individual cookies
+                # Parse cookies for SAPISID
                 cookies = {}
                 for cookie_pair in self.cookie.split('; '):
                     if '=' in cookie_pair:
                         name, value = cookie_pair.split('=', 1)
                         cookies[name] = value
                 
-                # Set up proper headers for authentication
-                if not hasattr(self.ytm, 'headers'):
-                    self.ytm.headers = {}
-                    
-                self.ytm.headers.update({
+                # Create comprehensive browser-like headers matching the working curl
+                headers = {
                     'Cookie': self.cookie,
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'application/json',
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
+                    'Accept': '*/*',
                     'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept-Encoding': 'gzip, deflate, br',
                     'Origin': 'https://music.youtube.com',
                     'Referer': 'https://music.youtube.com/',
-                })
+                    'Sec-Fetch-Dest': 'empty',
+                    'Sec-Fetch-Mode': 'same-origin',
+                    'Sec-Fetch-Site': 'same-origin',
+                    'sec-ch-ua': '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
+                    'sec-ch-ua-arch': '"arm"',
+                    'sec-ch-ua-bitness': '"64"',
+                    'sec-ch-ua-form-factors': '"Desktop"',
+                    'sec-ch-ua-full-version': '"140.0.7339.186"',
+                    'sec-ch-ua-full-version-list': '"Chromium";v="140.0.7339.186", "Not=A?Brand";v="24.0.0.0", "Google Chrome";v="140.0.7339.186"',
+                    'sec-ch-ua-mobile': '?0',
+                    'sec-ch-ua-model': '""',
+                    'sec-ch-ua-platform': '"macOS"',
+                    'sec-ch-ua-platform-version': '"26.0.1"',
+                    'sec-ch-ua-wow64': '?0',
+                    'X-Goog-AuthUser': auth_user,
+                    'X-Goog-PageId': 'account-chooser',
+                    'X-Goog-Visitor-Id': 'CgtkUUNUWjk4M0o5VSi7p4rHBjIKCgJVUxIEGgAgCw%3D%3D',
+                    'X-Origin': 'https://music.youtube.com',
+                    'X-Client-Data': 'CMTaygE=',
+                    'X-YouTube-Bootstrap-Logged-In': 'true',
+                    'X-YouTube-Client-Name': '67',
+                    'X-YouTube-Client-Version': '1.20250929.03.00',
+                    'Priority': 'u=1, i'
+                }
                 
-                # Add SAPISID hash if available (required for authenticated requests)
-                if 'SAPISID' in cookies:
-                    sapisid = cookies['SAPISID']
-                    timestamp = str(int(time.time()))
-                    origin = 'https://music.youtube.com'
+                # Add SAPISID authentication with all three hash types
+                if 'SAPISID' in cookies or '__Secure-3PAPISID' in cookies:
+                    import hashlib
+                    import time
                     
-                    # Create SAPISID hash
-                    hash_input = f"{timestamp} {sapisid} {origin}"
-                    sapisid_hash = hashlib.sha1(hash_input.encode()).hexdigest()
-                    
-                    self.ytm.headers['Authorization'] = f'SAPISIDHASH {timestamp}_{sapisid_hash}'
+                    sapisid = cookies.get('__Secure-3PAPISID') or cookies.get('SAPISID')
+                    if sapisid:
+                        timestamp = str(int(time.time()))
+                        origin = 'https://music.youtube.com'
+                        
+                        # Create SAPISID hash
+                        hash_input = f"{timestamp} {sapisid} {origin}"
+                        sapisid_hash = hashlib.sha1(hash_input.encode()).hexdigest()
+                        
+                        # Create all three authorization headers like in the working curl
+                        headers['Authorization'] = f'SAPISIDHASH {timestamp}_{sapisid_hash}'
+                        logger.info(f"[YTM] Added SAPISID authentication for account {auth_user}")
+                
+                # Set headers on ytmusic instance
+                if not hasattr(self.ytm, 'headers'):
+                    self.ytm.headers = {}
+                self.ytm.headers.update(headers)
+                
+                # Try to configure the underlying requests session to handle Brotli
+                if hasattr(self.ytm, '_session') and self.ytm._session:
+                    try:
+                        import brotli
+                        self.ytm._session.headers.update(headers)
+                        logger.info("[YTM] Updated session headers and Brotli is available")
+                    except ImportError:
+                        logger.warning("[YTM] Brotli library not available, compression may fail")
                 
                 # Test authentication
                 test_home = await self._run_sync(self.ytm.get_home, limit=1)
                 if test_home and len(test_home) > 0:
-                    self.is_authenticated = True
-                    logger.info("[YTM] ✓ Authentication successful (manual headers)")
-                    return True
+                    first_section = test_home[0].get("title", "").lower()
+                    personal_indicators = ['quick pick', 'listen again', 'mixed for you', 'your']
+                    is_personal = any(indicator in first_section for indicator in personal_indicators)
+                    
+                    if is_personal:
+                        logger.info(f"[YTM] ✓ Personal authentication successful with account {auth_user} - got section: {test_home[0].get('title')}")
+                        self.is_authenticated = True
+                        return True
+                    else:
+                        logger.info(f"[YTM] Account {auth_user} authenticated but not personal - got section: {test_home[0].get('title')}")
+                        # For single account testing, still return success
+                        self.is_authenticated = True
+                        return True
+                
+                logger.warning("[YTM] Authentication test failed")
+                return False
                     
             except Exception as e:
-                logger.error(f"[YTM] Manual headers method failed: {e}")
+                logger.warning(f"[YTM] Manual headers method failed: {e}")
+                return False
             
             logger.error("[YTM] All authentication methods failed")
             self.is_authenticated = False
@@ -151,6 +197,39 @@ class YouTubeMusicAggregator(BaseMusicService):
             logger.error(f"[YTM] Authentication failed: {e}")
             self.is_authenticated = False
             return False
+    
+    async def debug_authentication(self) -> Dict[str, Any]:
+        """Debug method to check what account/region we're actually authenticated as"""
+        if not self.is_authenticated:
+            await self.authenticate()
+        
+        try:
+            # Get account info
+            logger.info("[YTM] Checking authentication details...")
+            
+            # Test different endpoints to see what we get
+            home = await self._run_sync(self.ytm.get_home, limit=2)
+            
+            debug_info = {
+                "home_sections": [
+                    {
+                        "title": section.get("title"),
+                        "content_count": len(section.get("contents", [])),
+                        "first_item_title": section.get("contents", [{}])[0].get("title") if section.get("contents") else None
+                    }
+                    for section in (home or [])[:5]  # First 5 sections
+                ],
+                "total_home_sections": len(home or []),
+                "cookie_length": len(self.cookie) if self.cookie else 0,
+                "headers": dict(self.ytm.headers) if hasattr(self.ytm, 'headers') else {}
+            }
+            
+            logger.info(f"[YTM] Debug info: {debug_info}")
+            return debug_info
+            
+        except Exception as e:
+            logger.error(f"[YTM] Debug authentication failed: {e}")
+            return {"error": str(e)}
     
     async def _run_sync(self, func, *args, **kwargs):
         """Helper to run synchronous ytmusicapi calls"""

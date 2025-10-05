@@ -391,6 +391,108 @@ async def get_radio(
     return {"tracks": tracks}
 
 
+@app.get("/api/debug/auth")
+async def debug_auth(
+    sessionId: str = Query(...),
+    authenticated: bool = Depends(verify_password)
+):
+    """Debug YouTube Music authentication"""
+    session = get_session(sessionId)
+    
+    ytm_service = session["services"].get("youtubeMusic")
+    if not ytm_service:
+        # Try to create and test authentication directly
+        logger.info("[Debug] YouTube Music not connected, creating service for testing")
+        try:
+            ytm_service = YouTubeMusicAggregator({
+                "cookie": settings.youtube_music_cookie,
+                "profile": settings.youtube_music_profile
+            })
+        except Exception as e:
+            return {"error": f"Failed to create YouTube Music service: {str(e)}"}
+    
+    debug_info = await ytm_service.debug_authentication()
+    return debug_info
+
+
+@app.get("/api/debug/accounts")
+async def debug_accounts(
+    sessionId: str = Query(...),
+    authenticated: bool = Depends(verify_password)
+):
+    """Debug multiple Google accounts to help identify the correct one"""
+    session = get_session(sessionId)
+    
+    results = []
+    
+    # Try different account indices
+    for account_idx in range(5):  # Try accounts 0-4
+        logger.info(f"[Account Debug] Testing account index {account_idx}")
+        
+        try:
+            # Create a fresh service instance for each account
+            ytm_service = YouTubeMusicAggregator({
+                "cookie": settings.youtube_music_cookie,
+                "profile": str(account_idx)
+            })
+            
+            # Try to authenticate
+            auth_success = await ytm_service.authenticate()
+            
+            if auth_success:
+                # Get debug info for this account
+                debug_info = await ytm_service.debug_authentication()
+                
+                # Extract key information
+                account_info = {
+                    "account_index": account_idx,
+                    "authentication_success": True,
+                    "home_sections": debug_info.get("home_sections", []),
+                    "total_sections": debug_info.get("total_home_sections", 0),
+                    "sample_tracks": []
+                }
+                
+                # Get some sample tracks to help identify the account
+                try:
+                    tracks = await ytm_service.get_tracks()
+                    account_info["sample_tracks"] = [
+                        {
+                            "title": track.get("title", "Unknown"),
+                            "artist": track.get("artist", "Unknown"),
+                            "album": track.get("album", "Unknown")
+                        }
+                        for track in tracks[:5]  # First 5 tracks
+                    ]
+                    account_info["total_tracks_found"] = len(tracks)
+                except Exception as e:
+                    account_info["sample_tracks"] = []
+                    account_info["track_error"] = str(e)
+                
+                results.append(account_info)
+                logger.info(f"[Account Debug] Account {account_idx}: {len(account_info['home_sections'])} sections, {len(account_info['sample_tracks'])} sample tracks")
+            
+            else:
+                results.append({
+                    "account_index": account_idx,
+                    "authentication_success": False,
+                    "error": "Authentication failed"
+                })
+                logger.info(f"[Account Debug] Account {account_idx}: Authentication failed")
+                
+        except Exception as e:
+            results.append({
+                "account_index": account_idx,
+                "authentication_success": False,
+                "error": str(e)
+            })
+            logger.error(f"[Account Debug] Account {account_idx} error: {e}")
+    
+    return {
+        "accounts_tested": results,
+        "instructions": "Look at the sample_tracks and home_sections for each account. Find the account that has your preferred music (e.g., The Smashing Pumpkins, The Beatles). Use that account_index in your YOUTUBE_MUSIC_PROFILE setting."
+    }
+
+
 @app.options("/api/stream/youtube/{videoId}")
 async def stream_youtube_options(videoId: str):
     """Handle CORS preflight for streaming"""

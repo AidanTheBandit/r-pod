@@ -8,3 +8,5 @@ dist
 *.log
 *.tmp
 package-lock.json
+*.env
+*cookie*
