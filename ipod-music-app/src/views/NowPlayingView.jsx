@@ -18,23 +18,10 @@ function NowPlayingView() {
     currentTime,
     duration,
     togglePlayPause,
-    shuffle,
-    repeat,
   } = usePlayerStore()
   
   const frameRef = useRef(null)
   const artworkRef = useRef(null)
-  
-  // Format time helper (mm:ss)
-  const formatTime = (seconds) => {
-    if (!seconds || isNaN(seconds)) return '0:00'
-    const mins = Math.floor(seconds / 60)
-    const secs = Math.floor(seconds % 60)
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
-  
-  // Calculate remaining time
-  const remainingTime = duration - currentTime
   
   // Fit album art to progress border
   useEffect(() => {
@@ -109,7 +96,7 @@ function NowPlayingView() {
                 strokeWidth="3"
                 strokeLinecap="round"
                 strokeDasharray="372"
-                strokeDashoffset={372 - (372 * progressPercentage / 100)}
+                strokeDashoffset={372 - (372 * progressPercentage / 100) + 93}
                 rx="8"
                 ry="8"
                 className="progress-border-path"
@@ -135,23 +122,6 @@ function NowPlayingView() {
         <div className="track-info">
           <h1 className="track-title">{currentTrack.title}</h1>
           <h2 className="track-artist">{currentTrack.artist || 'Unknown Artist'}</h2>
-        </div>
-        
-        {/* Time Display */}
-        <div className="time-display">
-          <span className="time-elapsed">{formatTime(currentTime)}</span>
-          <span className="time-separator">•</span>
-          <span className="time-remaining">-{formatTime(remainingTime)}</span>
-        </div>
-        
-        {/* Status Indicators */}
-        <div className="status-indicators">
-          <div className={`status-badge ${shuffle ? 'active' : 'inactive'}`}>
-            {shuffle ? 'Shuffle' : 'Linear'}
-          </div>
-          <div className={`status-badge ${repeat !== 'none' ? 'active' : 'inactive'}`}>
-            {repeat === 'one' ? 'Repeat One' : repeat === 'all' ? 'Repeat All' : 'No Repeat'}
-          </div>
         </div>
       </div>
     </div>
