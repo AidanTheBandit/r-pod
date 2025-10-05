@@ -83,33 +83,33 @@ function BackgroundPlayer() {
 
     const loadAudio = async () => {
       try {
-        // First, try to fetch the stream URL to see if it's a redirect
-        const response = await fetch(currentTrack.streamUrl, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json, audio/*',
-          },
-        })
-
-        if (response.headers.get('content-type')?.includes('application/json')) {
-          // This is a JSON response (redirect to YouTube)
-          const data = await response.json()
-          if (data.type === 'youtube_url') {
-            console.log('Streaming not available, opening YouTube:', data.url)
-            // Open YouTube in new tab
-            window.open(data.url, '_blank')
-            // Show error in player
-            usePlayerStore.setState({ error: 'Streaming not available. Opened in YouTube.' })
-            return
+        console.log('[Audio] Loading stream:', currentTrack.streamUrl)
+        
+        // Clear any previous error
+        usePlayerStore.setState({ error: null })
+        
+        // Reset audio
+        audio.pause()
+        audio.currentTime = 0
+        
+        // Set the stream URL directly - our backend proxies it
+        audio.src = currentTrack.streamUrl
+        
+        // Load and play
+        await audio.load()
+        
+        if (isPlaying) {
+          try {
+            await audio.play()
+            console.log('[Audio] ✓ Playback started')
+          } catch (playError) {
+            console.error('[Audio] Play error:', playError)
+            usePlayerStore.setState({ error: 'Playback failed. Try another song.' })
           }
         }
-
-        // It's audio data, set it as src
-        const urlWithAuth = currentTrack.streamUrl
-        audio.src = urlWithAuth
       } catch (error) {
-        console.error('Error loading audio:', error)
-        usePlayerStore.setState({ error: 'Failed to load audio stream' })
+        console.error('[Audio] Load error:', error)
+        usePlayerStore.setState({ error: 'Failed to load audio. Check connection.' })
       }
     }
 
@@ -119,8 +119,7 @@ function BackgroundPlayer() {
   return (
     <audio
       ref={audioRef}
-      crossOrigin="anonymous"
-      autoPlay={isPlaying}
+      preload="auto"
     />
   )
 }

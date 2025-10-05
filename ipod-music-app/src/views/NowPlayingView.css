@@ -13,11 +13,11 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 20px;
-  background: #f8f9fa;
+  justify-content: flex-start;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
   overflow-y: auto;
-  gap: 20px;
+  gap: 12px;
 }
 
 /* Empty state */
@@ -68,21 +68,22 @@
 
 /* Album Art with Circular Progress */
 .album-art-container {
-  width: 260px;
-  height: 260px;
+  width: 240px;
+  height: 240px;
   flex-shrink: 0;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin: 8px 0;
 }
 
 .album-art {
-  width: 220px;
-  height: 220px;
+  width: 200px;
+  height: 200px;
   background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -125,30 +126,32 @@
   max-width: 400px;
   text-align: center;
   padding: 0 16px;
+  margin-top: 4px;
 }
 
 .song-title {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
   color: #1a1a1a;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-  line-height: 1.4;
+  line-height: 1.3;
 }
 
 .song-artist {
-  font-size: 15px;
+  font-size: 14px;
   color: #555;
   margin-bottom: 4px;
+  font-weight: 500;
 }
 
 .song-album {
-  font-size: 14px;
-  color: #777;
+  font-size: 13px;
+  color: #888;
 }
 
 /* Progress Time Display */
