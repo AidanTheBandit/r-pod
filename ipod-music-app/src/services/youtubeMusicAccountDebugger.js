@@ -178,7 +178,7 @@ function createAccountDebuggerUI() {
 
         try {
             const results = await accountDebugger.testAccounts();
-            const formatted = debugger.formatAccountResults(results);
+            const formatted = accountDebugger.formatAccountResults(results);
 
             let html = '<h3>📊 Results:</h3>';
             for (const account of formatted) {
@@ -225,6 +225,6 @@ if (typeof module !== 'undefined' && module.exports) {
 
 // CLI usage example
 if (typeof require !== 'undefined' && require.main === module) {
-    const debugger = new YouTubeMusicAccountDebugger();
-    debugger.runFullTest().catch(console.error);
+    const accountDebugger = new YouTubeMusicAccountDebugger();
+    accountDebugger.runFullTest().catch(console.error);
 }
