@@ -3,6 +3,7 @@ import { backendAPI } from '../services/backendClient'
 
 /**
  * Custom hooks for fetching music data from the backend aggregator
+ * Production-ready with proper error handling and caching
  */
 
 export function usePlaylists() {
@@ -13,11 +14,12 @@ export function usePlaylists() {
         return await backendAPI.getPlaylists()
       } catch (error) {
         console.error('Error fetching playlists:', error)
-        return []
+        throw error // Re-throw for React Query error handling
       }
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 2,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
   })
 }
 
@@ -29,11 +31,12 @@ export function useAlbums() {
         return await backendAPI.getAlbums()
       } catch (error) {
         console.error('Error fetching albums:', error)
-        return []
+        throw error
       }
     },
     staleTime: 5 * 60 * 1000,
     retry: 2,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
   })
 }
 
@@ -45,11 +48,12 @@ export function useArtists() {
         return await backendAPI.getArtists()
       } catch (error) {
         console.error('Error fetching artists:', error)
-        return []
+        throw error
       }
     },
     staleTime: 5 * 60 * 1000,
     retry: 2,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
   })
 }
 
@@ -61,11 +65,12 @@ export function useTracks() {
         return await backendAPI.getTracks()
       } catch (error) {
         console.error('Error fetching tracks:', error)
-        return []
+        throw error
       }
     },
     staleTime: 5 * 60 * 1000,
     retry: 2,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
   })
 }
 
@@ -81,11 +86,12 @@ export function useSearch(query, type = 'track') {
         return await backendAPI.search(query, type)
       } catch (error) {
         console.error('Error searching:', error)
-        return []
+        throw error
       }
     },
     enabled: query && query.trim().length >= 2,
     staleTime: 2 * 60 * 1000, // 2 minutes for search results
     retry: 1,
+    retryDelay: 1000,
   })
 }
