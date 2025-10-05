@@ -1,9 +1,17 @@
 import axios from 'axios'
 import Cookies from 'js-cookie'
 
-// Configuration
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
-const BACKEND_PASSWORD = import.meta.env.VITE_BACKEND_PASSWORD || 'music-aggregator-2025'
+// Default configuration
+let BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
+let BACKEND_PASSWORD = import.meta.env.VITE_BACKEND_PASSWORD || 'music-aggregator-2025'
+
+// Allow dynamic configuration
+export const updateBackendConfig = (url, password) => {
+  BACKEND_URL = url
+  BACKEND_PASSWORD = password
+  // Reinitialize the client with new config
+  initializeClient()
+}
 
 // Generate session ID once per session
 const getSessionId = () => {
@@ -15,45 +23,53 @@ const getSessionId = () => {
   return sessionId
 }
 
-// Create axios instance with default config
-const client = axios.create({
-  baseURL: BACKEND_URL,
-  headers: {
-    'x-server-password': BACKEND_PASSWORD,
-    'Content-Type': 'application/json'
-  },
-  timeout: 30000 // 30 second timeout
-})
+// Create axios instance
+let client = null
 
-// Add request interceptor for session ID
-client.interceptors.request.use((config) => {
-  if (config.params) {
-    config.params.sessionId = getSessionId()
-  } else {
-    config.params = { sessionId: getSessionId() }
-  }
-  return config
-})
+const initializeClient = () => {
+  client = axios.create({
+    baseURL: BACKEND_URL,
+    headers: {
+      'x-server-password': BACKEND_PASSWORD,
+      'Content-Type': 'application/json'
+    },
+    timeout: 30000 // 30 second timeout
+  })
 
-// Add response interceptor for error handling
-client.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      console.error('Authentication failed - check backend password')
-    } else if (error.response?.status === 500) {
-      console.error('Backend server error:', error.response.data)
-    } else if (error.code === 'ECONNREFUSED') {
-      console.error('Cannot connect to backend server - check if it\'s running')
+  // Add request interceptor for session ID
+  client.interceptors.request.use((config) => {
+    if (config.params) {
+      config.params.sessionId = getSessionId()
+    } else {
+      config.params = { sessionId: getSessionId() }
     }
-    return Promise.reject(error)
-  }
-)
+    return config
+  })
+
+  // Add response interceptor for error handling
+  client.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      if (error.response?.status === 401) {
+        console.error('Authentication failed - check backend password')
+      } else if (error.response?.status === 500) {
+        console.error('Backend server error:', error.response.data)
+      } else if (error.code === 'ECONNREFUSED') {
+        console.error('Cannot connect to backend server - check if it\'s running')
+      }
+      return Promise.reject(error)
+    }
+  )
+}
+
+// Initialize with default config
+initializeClient()
 
 export const backendAPI = {
   // Service connection
   async connectService(service, credentials) {
     const response = await client.post('/api/services/connect', {
+      sessionId: getSessionId(), // Include sessionId in request body
       service,
       credentials
     })
@@ -86,6 +102,12 @@ export const backendAPI = {
       params: { q: query, type }
     })
     return response.data.results || []
+  },
+
+  // Get available profiles for a service
+  async getProfiles(service) {
+    const response = await client.get(`/api/profiles/${service}`)
+    return response.data.profiles || []
   },
 
   // Health check

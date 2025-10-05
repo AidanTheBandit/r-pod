@@ -40,7 +40,7 @@ class ErrorBoundary extends Component {
             >
               Refresh Page
             </button>
-            {process.env.NODE_ENV === 'development' && (
+            {process.env.NODE_ENV === 'development' && this.state.errorInfo && (
               <details className="error-details">
                 <summary>Error Details (Development)</summary>
                 <pre className="error-stack">

@@ -17,26 +17,29 @@ const queryClient = new QueryClient({
   },
 })
 
-// Initialize R1 app
-createR1App(async (sdk) => {
-  console.log('🎵 iPod Music App initializing...')
-  
-  // Mount React app
-  ReactDOM.createRoot(document.getElementById('root')).render(
-    <React.StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <App sdk={sdk} />
-      </QueryClientProvider>
-    </React.StrictMode>,
-  )
-  
-  console.log('✅ iPod Music App ready!')
-})
+// Check if we're in R1 environment
+const isR1Environment = typeof window.PluginMessageHandler !== 'undefined'
 
-// Fallback for browser development (no R1 device)
-if (typeof window.PluginMessageHandler === 'undefined') {
+if (isR1Environment) {
+  // Initialize R1 app
+  createR1App(async (sdk) => {
+    console.log('🎵 iPod Music App initializing...')
+
+    // Mount React app
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      <React.StrictMode>
+        <QueryClientProvider client={queryClient}>
+          <App sdk={sdk} />
+        </QueryClientProvider>
+      </React.StrictMode>,
+    )
+
+    console.log('✅ iPod Music App ready!')
+  })
+} else {
+  // Fallback for browser development (no R1 device)
   console.log('🌐 Running in browser mode (development)')
-  
+
   ReactDOM.createRoot(document.getElementById('root')).render(
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>

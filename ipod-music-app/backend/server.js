@@ -53,7 +53,24 @@ app.post('/api/services/connect', authenticate, async (req, res) => {
         session.services.spotify = new SpotifyAggregator(credentials);
         break;
       case 'youtubeMusic':
-        session.services.youtubeMusic = new YouTubeMusicAggregator(credentials);
+        // Use credentials from request, or fall back to environment variable
+        const ytmCredentials = credentials?.cookie ? credentials : {
+          cookie: process.env.YOUTUBE_MUSIC_COOKIE,
+          profile: credentials?.profile || '0'
+        };
+        
+        console.log('YouTube Music connection attempt:', {
+          hasCredentialsCookie: !!credentials?.cookie,
+          hasEnvCookie: !!process.env.YOUTUBE_MUSIC_COOKIE,
+          envCookieLength: process.env.YOUTUBE_MUSIC_COOKIE?.length,
+          usingEnvCookie: !credentials?.cookie
+        });
+        
+        if (!ytmCredentials.cookie) {
+          return res.status(400).json({ error: 'YouTube Music cookie not provided. Set YOUTUBE_MUSIC_COOKIE in .env or provide credentials.' });
+        }
+        
+        session.services.youtubeMusic = new YouTubeMusicAggregator(ytmCredentials);
         await session.services.youtubeMusic.authenticate();
         break;
       case 'subsonic':
@@ -69,6 +86,7 @@ app.post('/api/services/connect', authenticate, async (req, res) => {
     
     res.json({ success: true });
   } catch (error) {
+    console.error(`Service connection error for ${service}:`, error.message);
     res.status(500).json({ error: error.message });
   }
 });
@@ -115,11 +133,40 @@ app.get('/api/artists', authenticate, async (req, res) => {
 });
 
 app.get('/api/search', authenticate, async (req, res) => {
-  const { sessionId, q } = req.query;
+  const { sessionId, q: query } = req.query;
   const session = getSession(sessionId);
-  const results = await aggregate(session, 'search', q);
+  
+  if (!query || query.trim().length < 2) {
+    return res.json({ results: [] });
+  }
+  
+  const results = await aggregate(session, 'search', query);
   res.json({ results });
 });
+
+app.get('/api/recommendations', authenticate, async (req, res) => {
+  const { sessionId } = req.query;
+  const session = getSession(sessionId);
+  const recommendations = await aggregate(session, 'getRecommendations');
+  res.json({ recommendations });
+});
+
+app.get('/api/profiles/:service', authenticate, async (req, res) => {
+  const { sessionId } = req.query
+  const { service } = req.params
+  const session = getSession(sessionId)
+
+  if (!session.services[service]) {
+    return res.status(404).json({ error: 'Service not connected' })
+  }
+
+  try {
+    const profiles = await session.services[service].getProfiles()
+    res.json({ profiles })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
 
 app.listen(PORT, () => {
   console.log(`Universal Music Aggregator - http://localhost:${PORT}`);

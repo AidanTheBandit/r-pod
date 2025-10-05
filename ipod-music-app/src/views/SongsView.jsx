@@ -71,8 +71,8 @@ function SongsView() {
     return (
       <div className="songs-view view-wrapper">
         <div className="empty-container">
-          <div className="empty-text">No songs found</div>
-          <div className="empty-subtext">Your library is empty</div>
+          <div className="empty-text">No songs in library</div>
+          <div className="empty-subtext">Use the Search tab to find and play music from YouTube Music</div>
         </div>
       </div>
     )

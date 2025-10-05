@@ -75,6 +75,8 @@ export function useTracks() {
 }
 
 export function useSearch(query, type = 'track') {
+  const isEnabled = Boolean(query && typeof query === 'string' && query.trim().length >= 2)
+
   return useQuery({
     queryKey: ['search', query, type],
     queryFn: async () => {
@@ -89,7 +91,7 @@ export function useSearch(query, type = 'track') {
         throw error
       }
     },
-    enabled: query && query.trim().length >= 2,
+    enabled: isEnabled,
     staleTime: 2 * 60 * 1000, // 2 minutes for search results
     retry: 1,
     retryDelay: 1000,

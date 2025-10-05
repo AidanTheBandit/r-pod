@@ -20,7 +20,7 @@
     "node-cache": "^5.1.2",
     "spotify-web-api-node": "^5.0.2",
     "subsonic": "^0.0.3",
-    "youtube-music-ts-api": "^1.8.4"
+    "ytmusic-api": "^5.3.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

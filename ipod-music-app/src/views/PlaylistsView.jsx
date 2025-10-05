@@ -61,8 +61,8 @@ function PlaylistsView() {
     return (
       <div className="playlists-view view-wrapper">
         <div className="empty-container">
-          <div className="empty-text">No playlists found</div>
-          <div className="empty-subtext">Your library is empty</div>
+          <div className="empty-text">No playlists in library</div>
+          <div className="empty-subtext">Use the Search tab to find and play music from YouTube Music</div>
         </div>
       </div>
     )
