@@ -81,9 +81,9 @@ class AudioStreamingService:
         """
         # Try multiple strategies in order of preference
         strategies = [
+            self._try_youtube_url_no_auth,  # Fastest working strategy first
             self._try_youtube_music_url,
             self._try_youtube_url_authenticated,
-            self._try_youtube_url_no_auth,
             self._try_basic_extraction
         ]
         
@@ -106,15 +106,33 @@ class AudioStreamingService:
             raise Exception("No cookie file available")
         
         ydl_opts = {
-            'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best[height<=720]',
+            'format': 'bestaudio/best',
             'quiet': True,
             'no_warnings': True,
             'cookiefile': self.cookie_file.name,
             'extract_flat': False,
             'ignoreerrors': False,
             'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
+                'Accept': '*/*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Origin': 'https://music.youtube.com',
                 'Referer': 'https://music.youtube.com/',
+                'Sec-Fetch-Dest': 'empty',
+                'Sec-Fetch-Mode': 'same-origin',
+                'Sec-Fetch-Site': 'same-origin',
+                'sec-ch-ua': '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
+                'sec-ch-ua-arch': '"arm"',
+                'sec-ch-ua-bitness': '"64"',
+                'sec-ch-ua-form-factors': '"Desktop"',
+                'sec-ch-ua-full-version': '"140.0.7339.186"',
+                'sec-ch-ua-full-version-list': '"Chromium";v="140.0.7339.186", "Not=A?Brand";v="24.0.0.0", "Google Chrome";v="140.0.7339.186"',
+                'sec-ch-ua-mobile': '?0',
+                'sec-ch-ua-model': '""',
+                'sec-ch-ua-platform': '"macOS"',
+                'sec-ch-ua-platform-version': '"26.0.1"',
+                'sec-ch-ua-wow64': '?0',
             },
         }
         
@@ -127,15 +145,21 @@ class AudioStreamingService:
             raise Exception("No cookie file available")
         
         ydl_opts = {
-            'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best[height<=720]/best',
+            'format': 'bestaudio/best',
             'quiet': True,
             'no_warnings': True,
             'cookiefile': self.cookie_file.name,
             'extract_flat': False,
             'ignoreerrors': False,
             'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
+                'Accept': '*/*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
                 'Referer': 'https://www.youtube.com/',
+                'Sec-Fetch-Dest': 'empty',
+                'Sec-Fetch-Mode': 'cors',
+                'Sec-Fetch-Site': 'same-origin',
             },
         }
         
@@ -145,14 +169,17 @@ class AudioStreamingService:
     async def _try_youtube_url_no_auth(self, video_id: str) -> Optional[Dict[str, Any]]:
         """Try regular YouTube URL without authentication"""
         ydl_opts = {
-            'format': 'bestaudio/best[height<=480]/worst',
+            'format': 'bestaudio/best',
             'quiet': True,
             'no_warnings': True,
             'extract_flat': False,
             'ignoreerrors': False,
             'age_limit': None,
             'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
+                'Accept': '*/*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
             },
         }
         

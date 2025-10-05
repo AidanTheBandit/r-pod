@@ -106,6 +106,29 @@ CORS_ORIGIN=https://your-domain.com
 4. Copy the full `cookie` header value
 5. In Settings → YouTube Music, paste the cookie
 
+#### YouTube Music Account Debugging
+
+If you have multiple Google accounts/channels, use the account debugging tools to find which account has your preferred music:
+
+**Web Interface:**
+- Open `youtube-account-debugger.html` in your browser
+- Click "Test Accounts" to scan accounts 0-4
+- Find which account shows your preferred music
+- Update `YOUTUBE_MUSIC_PROFILE` in your `.env` file
+
+**Command Line:**
+```bash
+node debug-accounts.js
+```
+
+**API Endpoint:**
+```bash
+curl "http://localhost:3001/api/debug/accounts?sessionId=YOUR_SESSION" \
+  -H "X-Server-Password:your-password"
+```
+
+See [YOUTUBE_MUSIC_ACCOUNT_DEBUGGING.md](./YOUTUBE_MUSIC_ACCOUNT_DEBUGGING.md) for detailed instructions.
+
 ### FOSS Services (Jellyfin/Navidrome/Subsonic)
 1. Enter your server URL (e.g., `https://your-server.com`)
 2. Enter username and password/API key
