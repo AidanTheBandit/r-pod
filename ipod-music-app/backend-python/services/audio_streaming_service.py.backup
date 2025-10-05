@@ -1,6 +1,6 @@
 """
-Audio Streaming Service
-Handles YouTube audio streaming using yt-dlp
+Audio Streaming Service v2.0
+Handles YouTube audio streaming using yt-dlp with cookie support
 """
 import logging
 from typing import Dict, Any, Optional

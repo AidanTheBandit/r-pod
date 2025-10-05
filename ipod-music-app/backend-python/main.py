@@ -17,7 +17,7 @@ import httpx
 from config import settings
 from services.youtube_music_aggregator import YouTubeMusicAggregator
 from services.spotify_aggregator import SpotifyAggregator
-from services.audio_streaming_service import AudioStreamingService
+from services.audio_streaming_service_v2 import AudioStreamingService
 
 # Configure logging
 logging.basicConfig(
