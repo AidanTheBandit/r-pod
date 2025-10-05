@@ -62,8 +62,8 @@ function ArtistsView() {
     return (
       <div className="artists-view view-wrapper">
         <div className="empty-container">
-          <div className="empty-text">No artists in library</div>
-          <div className="empty-subtext">Use the Search tab to find and play music from YouTube Music</div>
+          <div className="empty-text">No artists available</div>
+          <div className="empty-subtext">Try searching for artists in the Search tab</div>
         </div>
       </div>
     )
@@ -71,6 +71,11 @@ function ArtistsView() {
   
   return (
     <div className="artists-view view-wrapper">
+      {formattedArtists.length > 0 && (
+        <div className="view-header">
+          <h2>Popular Artists</h2>
+        </div>
+      )}
       <ListView items={formattedArtists} onItemClick={handleArtistClick} />
     </div>
   )

@@ -71,8 +71,8 @@ function SongsView() {
     return (
       <div className="songs-view view-wrapper">
         <div className="empty-container">
-          <div className="empty-text">No songs in library</div>
-          <div className="empty-subtext">Use the Search tab to find and play music from YouTube Music</div>
+          <div className="empty-text">No songs available</div>
+          <div className="empty-subtext">Try searching for songs in the Search tab</div>
         </div>
       </div>
     )
@@ -80,6 +80,11 @@ function SongsView() {
   
   return (
     <div className="songs-view view-wrapper">
+      {formattedSongs.length > 0 && (
+        <div className="view-header">
+          <h2>Recommended Songs</h2>
+        </div>
+      )}
       <ListView items={formattedSongs} onItemClick={handleSongClick} />
     </div>
   )

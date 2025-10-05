@@ -61,8 +61,8 @@ function AlbumsView() {
     return (
       <div className="albums-view view-wrapper">
         <div className="empty-container">
-          <div className="empty-text">No albums in library</div>
-          <div className="empty-subtext">Use the Search tab to find and play music from YouTube Music</div>
+          <div className="empty-text">No albums available</div>
+          <div className="empty-subtext">Try searching for albums in the Search tab</div>
         </div>
       </div>
     )
@@ -70,6 +70,11 @@ function AlbumsView() {
   
   return (
     <div className="albums-view view-wrapper">
+      {formattedAlbums.length > 0 && (
+        <div className="view-header">
+          <h2>Popular Albums</h2>
+        </div>
+      )}
       <ListView items={formattedAlbums} onItemClick={handleAlbumClick} />
     </div>
   )

@@ -46,9 +46,54 @@ const initializeClient = () => {
     return config
   })
 
-  // Add response interceptor for error handling
+  // Add response interceptor for error handling and URL conversion
   client.interceptors.response.use(
-    (response) => response,
+    (response) => {
+      // Convert relative streaming URLs to full URLs
+      if (response.data && Array.isArray(response.data.tracks)) {
+        response.data.tracks = response.data.tracks.map(track => ({
+          ...track,
+          streamUrl: track.streamUrl?.startsWith('/api/') 
+            ? `${BACKEND_URL}${track.streamUrl}` 
+            : track.streamUrl
+        }))
+      }
+      if (response.data && Array.isArray(response.data.albums)) {
+        response.data.albums = response.data.albums.map(album => ({
+          ...album,
+          // Albums don't have stream URLs, but just in case
+        }))
+      }
+      if (response.data && Array.isArray(response.data.playlists)) {
+        response.data.playlists = response.data.playlists.map(playlist => ({
+          ...playlist,
+          // Playlists don't have stream URLs, but just in case
+        }))
+      }
+      if (response.data && Array.isArray(response.data.artists)) {
+        response.data.artists = response.data.artists.map(artist => ({
+          ...artist,
+          // Artists don't have stream URLs, but just in case
+        }))
+      }
+      if (response.data && Array.isArray(response.data.results)) {
+        response.data.results = response.data.results.map(result => ({
+          ...result,
+          streamUrl: result.streamUrl?.startsWith('/api/') 
+            ? `${BACKEND_URL}${result.streamUrl}` 
+            : result.streamUrl
+        }))
+      }
+      if (response.data && Array.isArray(response.data.recommendations)) {
+        response.data.recommendations = response.data.recommendations.map(rec => ({
+          ...rec,
+          streamUrl: rec.streamUrl?.startsWith('/api/') 
+            ? `${BACKEND_URL}${rec.streamUrl}` 
+            : rec.streamUrl
+        }))
+      }
+      return response
+    },
     (error) => {
       if (error.response?.status === 401) {
         console.error('Authentication failed - check backend password')

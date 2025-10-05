@@ -61,8 +61,8 @@ function PlaylistsView() {
     return (
       <div className="playlists-view view-wrapper">
         <div className="empty-container">
-          <div className="empty-text">No playlists in library</div>
-          <div className="empty-subtext">Use the Search tab to find and play music from YouTube Music</div>
+          <div className="empty-text">No playlists available</div>
+          <div className="empty-subtext">Try searching for playlists in the Search tab</div>
         </div>
       </div>
     )
@@ -70,6 +70,11 @@ function PlaylistsView() {
   
   return (
     <div className="playlists-view view-wrapper">
+      {formattedPlaylists.length > 0 && (
+        <div className="view-header">
+          <h2>Popular Playlists</h2>
+        </div>
+      )}
       <ListView items={formattedPlaylists} onItemClick={handlePlaylistClick} />
     </div>
   )
