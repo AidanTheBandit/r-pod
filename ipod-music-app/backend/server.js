@@ -558,109 +558,124 @@ app.get('/api/stream/youtube/:videoId', async (req, res) => {
   console.log(`[Stream] YouTube stream request for: ${videoId}`);
   
   try {
-    // Try Lavalink first
-    if (lavalinkService.isConnected()) {
-      console.log('[Stream] Using Lavalink for streaming');
-      
-      const cacheKey = `stream:${videoId}`;
-      let trackData = cache.get(cacheKey);
-      
-      if (!trackData) {
-        console.log(`[Stream] Getting track data from Lavalink for ${videoId}...`);
+    const cacheKey = `stream:${videoId}`;
+    let trackData = cache.get(cacheKey);
+    let streamUrl = null;
+    let contentType = 'audio/webm';
+    
+    if (!trackData) {
+      // Try Lavalink first if connected
+      if (lavalinkService.isConnected()) {
+        console.log('[Stream] Trying Lavalink for streaming...');
         
         try {
           trackData = await lavalinkService.getStreamUrl(videoId);
           
-          if (!trackData || !trackData.info || !trackData.info.uri) {
-            throw new Error('No stream URL returned from Lavalink');
+          if (trackData && trackData.info && trackData.info.uri) {
+            streamUrl = trackData.info.uri;
+            cache.set(cacheKey, trackData, 3600);
+            console.log('[Stream] ✓ Using Lavalink streaming:', trackData.info.title);
           }
-          
-          cache.set(cacheKey, trackData, 3600);
-          console.log('[Stream] ✓ Track data obtained from Lavalink:', trackData.info.title);
         } catch (lavalinkError) {
-          console.error('[Stream] ✗ Lavalink failed:', lavalinkError.message);
-          throw new Error('Lavalink streaming failed');
+          console.log('[Stream] Lavalink failed, will try direct YouTube:', lavalinkError.message);
         }
-      } else {
-        console.log('[Stream] ✓ Using cached track data');
       }
       
-      const streamUrl = trackData.info.uri;
-      
-      res.setHeader('Content-Type', 'audio/webm');
-      res.setHeader('Accept-Ranges', 'bytes');
-      res.setHeader('Cache-Control', 'public, max-age=3600');
-      
-      const range = req.headers.range;
-      
-      if (range) {
-        console.log('[Stream] Range request:', range);
-        const response = await fetch(streamUrl, { headers: { Range: range } });
+      // Fallback to direct YouTube streaming if Lavalink failed or not connected
+      if (!streamUrl) {
+        console.log('[Stream] Using direct YouTube streaming...');
         
-        res.status(206);
-        res.setHeader('Content-Range', response.headers.get('content-range'));
-        res.setHeader('Content-Length', response.headers.get('content-length'));
+        const youtubeClient = await getYouTubeClient();
+        const info = await youtubeClient.getBasicInfo(videoId);
         
-        const reader = response.body.getReader();
-        const pump = async () => {
-          const { done, value } = await reader.read();
-          if (done) {
-            res.end();
-            return;
-          }
-          if (!res.write(value)) {
-            await new Promise(resolve => res.once('drain', resolve));
-          }
-          return pump();
-        };
-        await pump();
-      } else {
-        console.log('[Stream] Full file request');
-        const response = await fetch(streamUrl);
-        
-        if (response.headers.get('content-length')) {
-          res.setHeader('Content-Length', response.headers.get('content-length'));
+        if (!info.streaming_data) {
+          throw new Error('No streaming data available from YouTube');
         }
         
-        const reader = response.body.getReader();
-        const pump = async () => {
-          const { done, value } = await reader.read();
-          if (done) {
-            res.end();
-            return;
-          }
-          if (!res.write(value)) {
-            await new Promise(resolve => res.once('drain', resolve));
-          }
-          return pump();
-        };
-        await pump();
+        // Get the best audio format
+        const audioFormats = info.streaming_data.adaptive_formats.filter(f => f.has_audio && !f.has_video);
+        const bestFormat = audioFormats.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
+        
+        if (!bestFormat) {
+          throw new Error('No suitable audio format found');
+        }
+        
+        streamUrl = bestFormat.url;
+        contentType = bestFormat.mime_type || 'audio/webm';
+        console.log('[Stream] ✓ Using direct YouTube streaming:', contentType);
       }
-      
-      console.log('[Stream] ✓ Lavalink stream completed');
-      return;
+    } else {
+      console.log('[Stream] ✓ Using cached track data');
+      streamUrl = trackData.info.uri;
     }
     
-    // Fallback: redirect to YouTube
-    console.log('[Stream] Streaming not available, redirecting to YouTube');
+    if (!streamUrl) {
+      throw new Error('No stream URL available');
+    }
     
-    const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    console.log(`[Stream] Redirecting to: ${youtubeUrl}`);
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
     
-    // Return YouTube URL for frontend to handle
-    return res.json({
-      type: 'youtube_url',
-      url: youtubeUrl,
-      videoId: videoId,
-      message: 'Streaming not available, use YouTube player'
-    });
+    const range = req.headers.range;
+    
+    if (range) {
+      console.log('[Stream] Range request:', range);
+      const response = await fetch(streamUrl, { headers: { Range: range } });
+      
+      res.status(206);
+      res.setHeader('Content-Range', response.headers.get('content-range'));
+      res.setHeader('Content-Length', response.headers.get('content-length'));
+      
+      const reader = response.body.getReader();
+      const pump = async () => {
+        const { done, value } = await reader.read();
+        if (done) {
+          res.end();
+          return;
+        }
+        if (!res.write(value)) {
+          await new Promise(resolve => res.once('drain', resolve));
+        }
+        return pump();
+      };
+      await pump();
+    } else {
+      console.log('[Stream] Full file request');
+      const response = await fetch(streamUrl);
+      
+      if (response.headers.get('content-length')) {
+        res.setHeader('Content-Length', response.headers.get('content-length'));
+      }
+      
+      const reader = response.body.getReader();
+      const pump = async () => {
+        const { done, value } = await reader.read();
+        if (done) {
+          res.end();
+          return;
+        }
+        if (!res.write(value)) {
+          await new Promise(resolve => res.once('drain', resolve));
+        }
+        return pump();
+      };
+      await pump();
+    }
+    
+    console.log('[Stream] ✓ Stream completed successfully');
     
   } catch (error) {
-    console.error('[Stream] ✗ Error:', {
+    console.error('[Stream] ✗ Streaming failed:', {
       message: error.message,
       stack: error.stack
     });
-    res.status(500).json({ error: 'Failed to stream audio', details: error.message });
+    
+    res.status(503).json({ 
+      error: 'Streaming service unavailable',
+      message: 'Audio streaming is currently unavailable. Please try again later.',
+      videoId: videoId
+    });
   }
 });
 
