@@ -1,5 +1,7 @@
 /**
- * Main App Container Styles
+ * Main App Container Styles - R1 Optimized
+ * Display: 240x282px portrait
+ * Hardware-accelerated for smooth performance
  */
 
 .ipod-app {
@@ -10,6 +12,10 @@
   background: linear-gradient(180deg, #e8f0f7 0%, #c8d8e8 100%);
   position: relative;
   overflow: hidden;
+  /* Hardware acceleration */
+  transform: translateZ(0);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .view-container {
@@ -21,11 +27,30 @@
   position: relative;
   scrollbar-width: thin;
   scrollbar-color: #ccc #f0f0f0;
+  /* Smooth scrolling on touch devices */
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  /* Hardware acceleration */
+  transform: translateZ(0);
 }
 
 .view-wrapper {
   min-height: 100%;
   animation: fadeIn 0.3s ease;
+  /* Hardware acceleration */
+  transform: translateZ(0);
+}
+
+/* Smooth fade-in animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Loading state */

@@ -1,7 +1,16 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { usePlayerStore } from '../store/playerStore'
 import './NowPlayingView.css'
 
+/**
+ * Now Playing View - Redesigned for R1
+ * Inspired by classic album artwork display (Beatles Help! style)
+ * Optimized for 240x282px display with scroll wheel & PTT controls
+ * 
+ * Controls:
+ * - Scroll Wheel: Skip tracks (quick) or seek (hold)
+ * - PTT Button: Play/Pause
+ */
 function NowPlayingView() {
   const {
     currentTrack,
@@ -9,18 +18,11 @@ function NowPlayingView() {
     currentTime,
     duration,
     togglePlayPause,
-    playNext,
-    playPrevious,
-    seekTo,
     shuffle,
     repeat,
-    toggleShuffle,
-    cycleRepeat,
   } = usePlayerStore()
   
-  const progressRef = useRef(null)
-  
-  // Format time helper
+  // Format time helper (mm:ss)
   const formatTime = (seconds) => {
     if (!seconds || isNaN(seconds)) return '0:00'
     const mins = Math.floor(seconds / 60)
@@ -28,154 +30,107 @@ function NowPlayingView() {
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
   
-  // Handle progress bar click
-  const handleProgressClick = (e) => {
-    if (!progressRef.current || !duration) return
-    
-    const rect = progressRef.current.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const percentage = x / rect.width
-    const newTime = percentage * duration
-    
-    seekTo(newTime)
-  }
+  // Calculate remaining time
+  const remainingTime = duration - currentTime
   
+  // Empty state when no track is loaded
   if (!currentTrack) {
     return (
       <div className="now-playing-view view-wrapper">
         <div className="now-playing-empty">
-          <div className="empty-icon">NO TRACK</div>
-          <div className="empty-text">No track playing</div>
+          <div className="empty-icon">♪</div>
+          <div className="empty-text">No Track Playing</div>
+          <div className="empty-hint">Select a song to start</div>
         </div>
       </div>
     )
   }
   
+  // Calculate progress percentage
   const progressPercentage = duration ? (currentTime / duration) * 100 : 0
   
-  // Calculate circle progress
-  const radius = 130
-  const circumference = 2 * Math.PI * radius
-  const strokeDashoffset = circumference - (progressPercentage / 100) * circumference
-
   // Get error state
   const error = usePlayerStore((state) => state.error)
 
   return (
     <div className="now-playing-view view-wrapper">
       <div className="now-playing-container">
-        {/* Error Message */}
+        
+        {/* Album Artwork - Large, centered, square */}
+        <div className="album-artwork-wrapper">
+          <div className="album-artwork">
+            {currentTrack.albumArt ? (
+              <img 
+                src={currentTrack.albumArt} 
+                alt={currentTrack.album || 'Album artwork'}
+                className="album-image"
+              />
+            ) : (
+              <div className="album-placeholder">
+                <div className="placeholder-icon">♪</div>
+              </div>
+            )}
+            
+            {/* Play/Pause indicator overlay */}
+            <div className="playback-indicator">
+              <div className={`indicator-icon ${isPlaying ? 'playing' : 'paused'}`}>
+                {isPlaying ? '▶' : '❚❚'}
+              </div>
+            </div>
+          </div>
+          
+          {/* Thin progress bar under album art */}
+          <div className="progress-bar-thin">
+            <div 
+              className="progress-fill-thin"
+              style={{ width: `${progressPercentage}%` }}
+            />
+          </div>
+        </div>
+        
+        {/* Track Information - Clean typography */}
+        <div className="track-info">
+          <h1 className="track-title">{currentTrack.title}</h1>
+          <h2 className="track-artist">{currentTrack.artist || 'Unknown Artist'}</h2>
+          <div className="track-album">{currentTrack.album || 'Unknown Album'}</div>
+        </div>
+        
+        {/* Time Display - Elapsed / Remaining */}
+        <div className="time-display">
+          <span className="time-elapsed">{formatTime(currentTime)}</span>
+          <span className="time-separator">•</span>
+          <span className="time-remaining">-{formatTime(remainingTime)}</span>
+        </div>
+        
+        {/* Status Indicators - Shuffle & Repeat */}
+        <div className="status-indicators">
+          <div className={`status-badge ${shuffle ? 'active' : 'inactive'}`}>
+            {shuffle ? '🔀 Shuffle' : '➡️ Linear'}
+          </div>
+          <div className={`status-badge ${repeat !== 'none' ? 'active' : 'inactive'}`}>
+            {repeat === 'one' ? '🔂 One' : repeat === 'all' ? '🔁 All' : '➡️ None'}
+          </div>
+        </div>
+        
+        {/* Control Instructions */}
+        <div className="control-instructions">
+          <div className="instruction-item">
+            <span className="instruction-icon">🎛️</span>
+            <span className="instruction-text">Scroll: Skip/Seek</span>
+          </div>
+          <div className="instruction-item">
+            <span className="instruction-icon">⏯️</span>
+            <span className="instruction-text">PTT: Play/Pause</span>
+          </div>
+        </div>
+        
+        {/* Error Message (if any) */}
         {error && (
-          <div className="playback-error">
-            <div className="error-icon">⚠️</div>
-            <div className="error-message">{error}</div>
+          <div className="playback-error-banner">
+            <span className="error-icon">⚠️</span>
+            <span className="error-text">{error}</span>
           </div>
         )}
-        {/* Album Art with Circular Progress */}
-        <div className="album-art-container">
-          {/* Circular Progress Ring */}
-          <svg className="progress-ring" width="260" height="260">
-            {/* Background circle */}
-            <circle
-              cx="130"
-              cy="130"
-              r={radius}
-              stroke="#e0e0e0"
-              strokeWidth="4"
-              fill="none"
-            />
-            {/* Progress circle */}
-            <circle
-              className="progress-ring-circle"
-              cx="130"
-              cy="130"
-              r={radius}
-              stroke="#007bff"
-              strokeWidth="4"
-              fill="none"
-              strokeDasharray={circumference}
-              strokeDashoffset={strokeDashoffset}
-              strokeLinecap="round"
-            />
-          </svg>
-          
-          {/* Album Art */}
-          <div className="album-art">
-            {currentTrack.albumArt ? (
-              <img src={currentTrack.albumArt} alt={currentTrack.album} />
-            ) : (
-              <div className="album-art-placeholder">♪</div>
-            )}
-          </div>
-        </div>
-        
-        {/* Song Info */}
-        <div className="song-info">
-          <div className="song-title" title={currentTrack.title}>
-            {currentTrack.title}
-          </div>
-          <div className="song-artist">{currentTrack.artist}</div>
-          <div className="song-album">{currentTrack.album}</div>
-        </div>
-        
-        {/* Progress Time Display */}
-        <div className="progress-container">
-          <div className="progress-time">{formatTime(currentTime)}</div>
-          <div className="progress-time">{formatTime(duration)}</div>
-        </div>
-        
-        {/* Playback Controls */}
-        <div className="playback-controls">
-          <div
-            className="control-btn"
-            onClick={playPrevious}
-            role="button"
-            tabIndex={0}
-            aria-label="Previous track"
-          >
-            |◄
-          </div>
-          <div
-            className="control-btn control-play"
-            onClick={togglePlayPause}
-            role="button"
-            tabIndex={0}
-            aria-label={isPlaying ? 'Pause' : 'Play'}
-          >
-            {isPlaying ? '||' : '▶'}
-          </div>
-          <div
-            className="control-btn"
-            onClick={playNext}
-            role="button"
-            tabIndex={0}
-            aria-label="Next track"
-          >
-            ►|
-          </div>
-        </div>
-        
-        {/* Additional Controls */}
-        <div className="additional-controls">
-          <div
-            className={`control-btn-small ${shuffle ? 'active' : ''}`}
-            onClick={toggleShuffle}
-            role="button"
-            tabIndex={0}
-            aria-label="Shuffle"
-          >
-            SHUF
-          </div>
-          <div
-            className={`control-btn-small ${repeat !== 'none' ? 'active' : ''}`}
-            onClick={cycleRepeat}
-            role="button"
-            tabIndex={0}
-            aria-label="Repeat"
-          >
-            {repeat === 'one' ? 'REP1' : repeat === 'all' ? 'REPA' : 'REP'}
-          </div>
-        </div>
       </div>
     </div>
   )

@@ -5,29 +5,92 @@ import { usePlayerStore } from '../store/playerStore'
 
 /**
  * Custom hook to handle R1 device controls
- * Manages scroll wheel and side button interactions
+ * Manages scroll wheel and side button (PTT) interactions
+ * 
+ * Now Playing Mode:
+ * - Scroll Wheel: Skip tracks forward/backward & Seek within track (hold for 1s)
+ * - PTT Button: Play/Pause
+ * 
+ * List View Mode:
+ * - Scroll Wheel: Navigate up/down
+ * - PTT Button: Select item
  */
 export function useDeviceControls(sdk) {
-  const { navigateBack, moveSelectionUp, moveSelectionDown } = useNavigationStore()
-  const { togglePlayPause, currentView } = usePlayerStore()
+  const { navigateBack, moveSelectionUp, moveSelectionDown, currentView } = useNavigationStore()
+  const { 
+    togglePlayPause, 
+    playNext, 
+    playPrevious, 
+    seekTo, 
+    currentTime, 
+    duration 
+  } = usePlayerStore()
   
   useEffect(() => {
     // Initialize device controls
     deviceControls.init({
       sideButtonEnabled: true,
       scrollWheelEnabled: true,
-      keyboardFallback: true, // Space bar for side button, arrow keys for scroll
+      keyboardFallback: true, // Space bar for PTT, arrow keys for scroll
     })
     
-    console.log('Device controls initialized')
+    console.log('Device controls initialized for R1')
+    
+    // Track scroll timing for seek mode
+    let scrollHoldTimer = null
+    let isSeekMode = false
     
     // Handle scroll wheel events
     const handleScrollWheel = (data) => {
-      const viewContainer = document.querySelector('.view-container')
-      
-      if (!viewContainer) return
+      // Special handling for Now Playing view
+      if (currentView === 'nowPlaying') {
+        // Clear any existing timer
+        if (scrollHoldTimer) {
+          clearTimeout(scrollHoldTimer)
+        }
+        
+        if (!isSeekMode) {
+          // Quick scroll = track skip
+          if (data.direction === 'up') {
+            playNext()
+            console.log('Scroll: Next track')
+          } else {
+            playPrevious()
+            console.log('Scroll: Previous track')
+          }
+          
+          // Start timer to enable seek mode if user keeps scrolling
+          scrollHoldTimer = setTimeout(() => {
+            isSeekMode = true
+            console.log('Seek mode enabled')
+          }, 1000)
+        } else {
+          // Seek mode = scrub through current track
+          const seekAmount = duration * 0.03 // 3% of track length per scroll
+          const newTime = data.direction === 'up' 
+            ? Math.min(currentTime + seekAmount, duration)
+            : Math.max(currentTime - seekAmount, 0)
+          
+          seekTo(newTime)
+          console.log(`Seek: ${data.direction} to ${newTime.toFixed(1)}s`)
+        }
+        
+        // Reset seek mode after inactivity
+        setTimeout(() => {
+          if (scrollHoldTimer) {
+            clearTimeout(scrollHoldTimer)
+            scrollHoldTimer = null
+          }
+          isSeekMode = false
+        }, 2000)
+        
+        return
+      }
       
       // For list views, move selection
+      const viewContainer = document.querySelector('.view-container')
+      if (!viewContainer) return
+      
       const listItems = viewContainer.querySelectorAll('.list-item')
       
       if (listItems.length > 0) {
@@ -39,18 +102,22 @@ export function useDeviceControls(sdk) {
       }
     }
     
-    // Handle side button press
+    // Handle PTT (side button) press
     const handleSideButton = () => {
-      console.log('Side button pressed')
+      console.log('PTT pressed')
       
-      // Find selected item and trigger click
+      // In Now Playing view, PTT = play/pause
+      if (currentView === 'nowPlaying') {
+        togglePlayPause()
+        console.log('PTT: Toggle play/pause')
+        return
+      }
+      
+      // In other views, PTT = select current item
       const selectedItem = document.querySelector('.list-item.selected')
       
       if (selectedItem) {
         selectedItem.click()
-      } else if (currentView === 'nowPlaying') {
-        // In now playing view, toggle play/pause
-        togglePlayPause()
       }
     }
     
@@ -62,8 +129,22 @@ export function useDeviceControls(sdk) {
     return () => {
       deviceControls.off('scrollWheel', handleScrollWheel)
       deviceControls.off('sideButton', handleSideButton)
+      
+      if (scrollHoldTimer) {
+        clearTimeout(scrollHoldTimer)
+      }
     }
-  }, [moveSelectionUp, moveSelectionDown, togglePlayPause, currentView])
+  }, [
+    moveSelectionUp, 
+    moveSelectionDown, 
+    togglePlayPause, 
+    currentView, 
+    playNext, 
+    playPrevious, 
+    seekTo, 
+    currentTime, 
+    duration
+  ])
   
   // Handle keyboard fallback for development
   useEffect(() => {
