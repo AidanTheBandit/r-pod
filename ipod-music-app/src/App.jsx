@@ -15,6 +15,7 @@ import PlaylistsView from './views/PlaylistsView'
 import NowPlayingView from './views/NowPlayingView'
 import SettingsView from './views/SettingsView'
 import SearchView from './views/SearchView'
+import PlaylistDetailsView from './views/PlaylistDetailsView'
 import './styles/App.css'
 
 // Background player component that stays mounted
@@ -197,6 +198,8 @@ function AppContent({ sdk }) {
         return <ArtistsView />
       case 'playlists':
         return <PlaylistsView />
+      case 'playlistDetails':
+        return <PlaylistDetailsView />
       case 'nowPlaying':
         return <NowPlayingView />
       case 'settings':

@@ -2,6 +2,12 @@
  * List View Component Styles
  */
 
+.list-view-container {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 .ipod-list {
   list-style: none;
   width: 100%;
@@ -26,6 +32,18 @@
 
 .list-item:first-child {
   border-top: none;
+}
+
+/* Loading state */
+.list-item.loading {
+  justify-content: center;
+  cursor: default;
+  background: #f8f8f8;
+}
+
+.list-item.loading .item-text {
+  color: #666;
+  font-style: italic;
 }
 
 /* iPod Classic Blue Selection Highlight */

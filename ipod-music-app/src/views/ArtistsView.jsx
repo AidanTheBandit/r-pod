@@ -7,8 +7,18 @@ import './ArtistsView.css'
 function ArtistsView() {
   const [artistType, setArtistType] = useState('user') // 'user' or 'popular'
   
-  // Fetch artists from configured services
-  const { data: artists = [], isLoading, error } = useArtists(artistType)
+  // Fetch artists from configured services with infinite scroll
+  const {
+    data,
+    isLoading,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage
+  } = useArtists(artistType)
+  
+  // Flatten the paginated data
+  const artists = data?.pages?.flatMap(page => page.data) || []
   
   // Format artists for ListView
   const formattedArtists = artists.map(artist => ({
@@ -20,6 +30,12 @@ function ArtistsView() {
   const handleArtistClick = (artist) => {
     console.log('Artist clicked:', artist.name)
     // TODO: Navigate to artist details view with albums/tracks
+  }
+  
+  const handleLoadMore = () => {
+    if (hasNextPage && !isFetchingNextPage) {
+      return fetchNextPage()
+    }
   }
   
   // Show loading state
@@ -79,7 +95,13 @@ function ArtistsView() {
           </div>
         </div>
       )}
-      <ListView items={formattedArtists} onItemClick={handleArtistClick} />
+      <ListView 
+        items={formattedArtists} 
+        onItemClick={handleArtistClick}
+        onLoadMore={handleLoadMore}
+        hasMore={hasNextPage}
+        loading={isFetchingNextPage}
+      />
     </div>
   )
 }

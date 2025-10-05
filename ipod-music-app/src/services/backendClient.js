@@ -183,23 +183,30 @@ export const backendAPI = {
     return response.data.tracks || []
   },
 
-  async getAlbums(type = 'user') {
+  async getAlbums(type = 'user', offset = 0, limit = 50) {
     const response = await client.get('/api/albums', {
-      params: { type }
+      params: { type, offset, limit }
     })
     return response.data.albums || []
   },
 
-  async getPlaylists() {
-    const response = await client.get('/api/playlists')
+  async getPlaylists(offset = 0, limit = 50) {
+    const response = await client.get('/api/playlists', {
+      params: { offset, limit }
+    })
     return response.data.playlists || []
   },
 
-  async getArtists(type = 'user') {
+  async getArtists(type = 'user', offset = 0, limit = 50) {
     const response = await client.get('/api/artists', {
-      params: { type }
+      params: { type, offset, limit }
     })
     return response.data.artists || []
+  },
+
+  async getPlaylistTracks(playlistId) {
+    const response = await client.get(`/api/playlists/${playlistId}/tracks`)
+    return response.data.tracks || []
   },
 
   async search(query, type = 'track') {

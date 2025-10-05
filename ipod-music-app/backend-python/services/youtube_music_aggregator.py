@@ -814,8 +814,8 @@ class YouTubeMusicAggregator(BaseMusicService):
             logger.error(f"[YTM] Error getting home section '{section_name}': {e}")
             return []
     
-    async def get_albums(self, album_type: str = "user") -> List[Dict[str, Any]]:
-        """Get albums - prioritizes user's library albums with home fallback"""
+    async def get_albums(self, album_type: str = "user", offset: int = 0, limit: int = 50) -> List[Dict[str, Any]]:
+        """Get albums with pagination support"""
         if not self.is_authenticated:
             await self.authenticate()
 
@@ -896,14 +896,15 @@ class YouTubeMusicAggregator(BaseMusicService):
                 except Exception as e:
                     logger.warning(f"[YTM] Failed to get home albums: {e}")
 
-            logger.info(f"[YTM] ✓ Returning {len(albums)} albums")
+            logger.info(f"[YTM] ✓ Returning {len(albums)} albums (applying pagination: offset={offset}, limit={limit})")
 
         except Exception as e:
             logger.error(f"[YTM] Error getting albums: {e}")
 
-        return albums[:50]
+        # Apply pagination
+        return albums[offset:offset + limit]
     
-    async def get_playlists(self) -> List[Dict[str, Any]]:
+    async def get_playlists(self, offset: int = 0, limit: int = 50) -> List[Dict[str, Any]]:
         """Get user playlists with fallback to home recommendations and channel content"""
         if not self.is_authenticated:
             await self.authenticate()
@@ -911,7 +912,7 @@ class YouTubeMusicAggregator(BaseMusicService):
         playlists = []
 
         try:
-            logger.info("[YTM] Fetching user playlists")
+            logger.info(f"[YTM] Fetching user playlists (offset={offset}, limit={limit})")
             
             # Try library playlists first (user's own playlists)
             try:
@@ -929,7 +930,25 @@ class YouTubeMusicAggregator(BaseMusicService):
             except Exception as e:
                 logger.warning(f"[YTM] Library playlists failed, falling back to recommendations: {e}")
 
-            logger.info(f"[YTM] ✓ Loaded {len(playlists)} library playlists from {len(library_playlists) if 'library_playlists' in locals() and library_playlists else 0} raw items")
+            # Add Liked Music only if it's not already in the library playlists
+            has_liked_music = any(p.get("id") == "ytm:LM" for p in playlists)
+            if not has_liked_music:
+                try:
+                    liked_songs = await self._run_sync(self.ytm.get_liked_songs, limit=1)
+                    if liked_songs and "tracks" in liked_songs:
+                        liked_count = len(liked_songs["tracks"])
+                        playlists.insert(0, {  # Insert at the beginning
+                            "id": "ytm:LM",
+                            "name": "Liked Music",
+                            "title": "Liked Music", 
+                            "description": "Your liked songs",
+                            "trackCount": liked_count,
+                            "coverArt": None,  # Could add a default heart icon
+                            "service": "youtubeMusic"
+                        })
+                        logger.info(f"[YTM] ✓ Added Liked Music with {liked_count} songs")
+                except Exception as e:
+                    logger.warning(f"[YTM] Failed to get liked songs count: {e}")
             
             # If no library playlists, try to get channel-specific playlists
             if len(playlists) == 0:
@@ -971,7 +990,7 @@ class YouTubeMusicAggregator(BaseMusicService):
                         logger.warning(f"[YTM] Account not fully set up: {account_setup.get('reason')}")
                         if account_setup.get("has_welcome_content", False):
                             logger.info("[YTM] Account showing welcome content - skipping home playlists")
-                            return playlists[:50]
+                            return playlists[offset:offset + limit]
 
                     for section in home or []:
                         # Skip sections that are action cards
@@ -993,15 +1012,16 @@ class YouTubeMusicAggregator(BaseMusicService):
                 except Exception as e:
                     logger.warning(f"[YTM] Failed to get home playlists: {e}")
 
-            logger.info(f"[YTM] ✓ Returning {len(playlists)} playlists")
+            logger.info(f"[YTM] ✓ Returning {len(playlists)} playlists (applying pagination: offset={offset}, limit={limit})")
 
         except Exception as e:
             logger.error(f"[YTM] Error getting playlists: {e}")
 
-        return playlists[:50]
+        # Apply pagination
+        return playlists[offset:offset + limit]
     
-    async def get_artists(self, artist_type: str = "user") -> List[Dict[str, Any]]:
-        """Get artists - prioritizes user's library artists with home fallback"""
+    async def get_artists(self, artist_type: str = "user", offset: int = 0, limit: int = 50) -> List[Dict[str, Any]]:
+        """Get artists with pagination support"""
         if not self.is_authenticated:
             await self.authenticate()
 
@@ -1057,12 +1077,13 @@ class YouTubeMusicAggregator(BaseMusicService):
                 except Exception as e:
                     logger.warning(f"[YTM] Failed to get home artists: {e}")
 
-            logger.info(f"[YTM] ✓ Returning {len(artists)} artists")
+            logger.info(f"[YTM] ✓ Returning {len(artists)} artists (applying pagination: offset={offset}, limit={limit})")
 
         except Exception as e:
             logger.error(f"[YTM] Error getting artists: {e}")
 
-        return artists[:50]
+        # Apply pagination
+        return artists[offset:offset + limit]
     
     async def search(self, query: str) -> List[Dict[str, Any]]:
         """Search YouTube Music"""
@@ -1162,6 +1183,56 @@ class YouTubeMusicAggregator(BaseMusicService):
             logger.error(f"[YTM] Error getting recommendations: {e}")
         
         return recommendations
+    
+    async def get_playlist_tracks(self, playlist_id: str) -> List[Dict[str, Any]]:
+        """Get tracks from a specific playlist"""
+        if not self.is_authenticated:
+            logger.warning("[YTM] Not authenticated, cannot get playlist tracks")
+            return []
+
+        try:
+            logger.info(f"[YTM] Getting tracks for playlist: {playlist_id}")
+
+            # Handle special case for Liked Music
+            if playlist_id == "LM":
+                logger.info("[YTM] Getting liked songs")
+                liked_songs = await self._run_sync(self.ytm.get_liked_songs, limit=1000)
+                
+                if not liked_songs or "tracks" not in liked_songs:
+                    logger.warning("[YTM] No liked songs found")
+                    return []
+
+                tracks = []
+                for track in liked_songs["tracks"]:
+                    if track and "videoId" in track:
+                        formatted_track = self._map_ytm_track(track)
+                        if formatted_track:
+                            tracks.append(formatted_track)
+
+                logger.info(f"[YTM] ✓ Found {len(tracks)} liked songs")
+                return tracks
+
+            # Regular playlist handling
+            # Get playlist details with tracks
+            playlist_data = await self._run_sync(self.ytm.get_playlist, playlist_id, limit=1000)
+
+            if not playlist_data or "tracks" not in playlist_data:
+                logger.warning(f"[YTM] No tracks found in playlist {playlist_id}")
+                return []
+
+            tracks = []
+            for track in playlist_data["tracks"]:
+                if track and "videoId" in track:
+                    formatted_track = self._map_ytm_track(track)
+                    if formatted_track:
+                        tracks.append(formatted_track)
+
+            logger.info(f"[YTM] ✓ Found {len(tracks)} tracks in playlist {playlist_id}")
+            return tracks
+
+        except Exception as e:
+            logger.error(f"[YTM] Error getting playlist tracks for {playlist_id}: {e}")
+            return []
     
     async def get_radio(self, video_id: str) -> List[Dict[str, Any]]:
         """Get radio/autoplay tracks based on a seed song"""

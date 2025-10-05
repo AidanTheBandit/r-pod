@@ -1,0 +1,122 @@
+.playlist-details-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.playlist-details-view .view-header {
+  padding: 1rem;
+  border-bottom: 1px solid #333;
+  background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+}
+
+.playlist-details-view .view-header h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.playlist-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.playlist-info span {
+  font-size: 0.9rem;
+  color: #ccc;
+}
+
+.playlist-info p {
+  font-size: 0.8rem;
+  color: #999;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.playlist-actions {
+  padding: 1rem;
+  border-bottom: 1px solid #333;
+}
+
+.play-all-btn {
+  background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.play-all-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
+}
+
+.play-all-btn:active {
+  transform: translateY(0);
+}
+
+/* Loading and error states */
+.playlist-details-view .loading-container,
+.playlist-details-view .error-container,
+.playlist-details-view .empty-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 2rem;
+  text-align: center;
+}
+
+.playlist-details-view .loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #333;
+  border-top: 3px solid #ff6b35;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.playlist-details-view .error-icon {
+  width: 60px;
+  height: 60px;
+  background: #ff6b35;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: bold;
+  color: white;
+  margin-bottom: 1rem;
+}
+
+.playlist-details-view .error-message,
+.playlist-details-view .empty-text,
+.playlist-details-view .empty-subtext {
+  color: #ccc;
+  margin: 0;
+}
+
+.playlist-details-view .empty-text {
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+
+.playlist-details-view .empty-subtext {
+  font-size: 0.9rem;
+  color: #999;
+}

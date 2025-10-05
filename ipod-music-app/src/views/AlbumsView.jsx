@@ -7,8 +7,18 @@ import './AlbumsView.css'
 function AlbumsView() {
   const [albumType, setAlbumType] = useState('user') // 'user' or 'popular'
   
-  // Fetch albums from configured services
-  const { data: albums = [], isLoading, error } = useAlbums(albumType)
+  // Fetch albums from configured services with infinite scroll
+  const {
+    data,
+    isLoading,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage
+  } = useAlbums(albumType)
+  
+  // Flatten the paginated data
+  const albums = data?.pages?.flatMap(page => page.data) || []
   
   // Format albums for ListView
   const formattedAlbums = albums.map(album => ({
@@ -19,6 +29,12 @@ function AlbumsView() {
   const handleAlbumClick = (album) => {
     console.log('Album clicked:', album.title)
     // TODO: Navigate to album details view with tracks
+  }
+  
+  const handleLoadMore = () => {
+    if (hasNextPage && !isFetchingNextPage) {
+      return fetchNextPage()
+    }
   }
   
   // Show loading state
@@ -78,7 +94,13 @@ function AlbumsView() {
           </div>
         </div>
       )}
-      <ListView items={formattedAlbums} onItemClick={handleAlbumClick} />
+      <ListView 
+        items={formattedAlbums} 
+        onItemClick={handleAlbumClick}
+        onLoadMore={handleLoadMore}
+        hasMore={hasNextPage}
+        loading={isFetchingNextPage}
+      />
     </div>
   )
 }

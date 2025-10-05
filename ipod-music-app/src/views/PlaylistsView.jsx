@@ -1,11 +1,24 @@
 import { useServiceStore } from '../store/serviceStore'
 import { usePlaylists } from '../hooks/useMusicData'
+import { useNavigationStore } from '../store/navigationStore'
 import ListView from '../components/ListView'
 import './PlaylistsView.css'
 
 function PlaylistsView() {
-  // Fetch playlists from configured services
-  const { data: playlists = [], isLoading, error } = usePlaylists()
+  // Fetch playlists from configured services with infinite scroll
+  const {
+    data,
+    isLoading,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage
+  } = usePlaylists()
+  
+  const { navigateTo } = useNavigationStore()
+  
+  // Flatten the paginated data
+  const playlists = data?.pages?.flatMap(page => page.data) || []
   
   // Format playlists for ListView
   const formattedPlaylists = playlists.map(playlist => ({
@@ -15,7 +28,18 @@ function PlaylistsView() {
   
   const handlePlaylistClick = (playlist) => {
     console.log('Playlist clicked:', playlist.title)
-    // TODO: Navigate to playlist details view with tracks
+    
+    // Store the selected playlist data for the details view
+    localStorage.setItem('selectedPlaylist', JSON.stringify(playlist))
+    
+    // Navigate to playlist details view
+    navigateTo('playlistDetails')
+  }
+  
+  const handleLoadMore = () => {
+    if (hasNextPage && !isFetchingNextPage) {
+      return fetchNextPage()
+    }
   }
   
   // Show loading state
@@ -61,7 +85,13 @@ function PlaylistsView() {
           <h2>Your Playlists</h2>
         </div>
       )}
-      <ListView items={formattedPlaylists} onItemClick={handlePlaylistClick} />
+      <ListView 
+        items={formattedPlaylists} 
+        onItemClick={handlePlaylistClick}
+        onLoadMore={handleLoadMore}
+        hasMore={hasNextPage}
+        loading={isFetchingNextPage}
+      />
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { backendAPI } from '../services/backendClient'
 
 /**
@@ -7,16 +7,22 @@ import { backendAPI } from '../services/backendClient'
  */
 
 export function usePlaylists() {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['playlists'],
-    queryFn: async () => {
+    queryFn: async ({ pageParam = 0 }) => {
       try {
-        return await backendAPI.getPlaylists()
+        const limit = 50
+        const playlists = await backendAPI.getPlaylists(pageParam, limit)
+        return {
+          data: playlists,
+          nextOffset: playlists.length === limit ? pageParam + limit : undefined
+        }
       } catch (error) {
         console.error('Error fetching playlists:', error)
-        throw error // Re-throw for React Query error handling
+        throw error
       }
     },
+    getNextPageParam: (lastPage) => lastPage.nextOffset,
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 2,
     retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
@@ -24,16 +30,22 @@ export function usePlaylists() {
 }
 
 export function useAlbums(type = 'user') {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['albums', type],
-    queryFn: async () => {
+    queryFn: async ({ pageParam = 0 }) => {
       try {
-        return await backendAPI.getAlbums(type)
+        const limit = 50
+        const albums = await backendAPI.getAlbums(type, pageParam, limit)
+        return {
+          data: albums,
+          nextOffset: albums.length === limit ? pageParam + limit : undefined
+        }
       } catch (error) {
         console.error('Error fetching albums:', error)
         throw error
       }
     },
+    getNextPageParam: (lastPage) => lastPage.nextOffset,
     staleTime: 5 * 60 * 1000,
     retry: 2,
     retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
@@ -41,17 +53,23 @@ export function useAlbums(type = 'user') {
 }
 
 export function useArtists(type = 'user') {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['artists', type],
-    queryFn: async () => {
+    queryFn: async ({ pageParam = 0 }) => {
       try {
-        return await backendAPI.getArtists(type)
+        const limit = 50
+        const artists = await backendAPI.getArtists(type, pageParam, limit)
+        return {
+          data: artists,
+          nextOffset: artists.length === limit ? pageParam + limit : undefined
+        }
       } catch (error) {
         console.error('Error fetching artists:', error)
         throw error
       }
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    getNextPageParam: (lastPage) => lastPage.nextOffset,
+    staleTime: 5 * 60 * 1000,
     retry: 2,
     retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
   })

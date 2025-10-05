@@ -145,9 +145,9 @@ async def session_cleanup_loop():
             logger.error(f"[Cleanup] Error: {e}")
 
 
-async def aggregate(session: Dict[str, Any], method: str, *args) -> List[Dict[str, Any]]:
+async def aggregate(session: Dict[str, Any], method: str, *args, **kwargs) -> List[Dict[str, Any]]:
     """Aggregate data from all connected services"""
-    logger.info(f"[Aggregate] Method: {method}, Services: {list(session['services'].keys())}")
+    logger.info(f"[Aggregate] Method: {method}, Services: {list(session['services'].keys())}, Args: {args}, Kwargs: {kwargs}")
     
     # Auto-connect YouTube Music if available
     if not session["services"] and settings.youtube_music_cookie:
@@ -177,7 +177,7 @@ async def aggregate(session: Dict[str, Any], method: str, *args) -> List[Dict[st
                 continue
             
             start_time = datetime.now()
-            data = await getattr(service, method)(*args)
+            data = await getattr(service, method)(*args, **kwargs)
             duration = (datetime.now() - start_time).total_seconds()
             
             logger.info(f"[Aggregate] {name}.{method}() completed in {duration:.2f}s - {len(data) if isinstance(data, list) else 0} items")
@@ -306,34 +306,73 @@ async def get_tracks(
 async def get_albums(
     sessionId: str = Query(...),
     type: str = Query("user"),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
     authenticated: bool = Depends(verify_password)
 ):
-    """Get albums from all services"""
+    """Get albums from all services with pagination"""
     session = get_session(sessionId)
-    albums = await aggregate(session, "get_albums", type)
+    albums = await aggregate(session, "get_albums", type, offset=offset, limit=limit)
     return {"albums": albums}
 
 
 @app.get("/api/playlists")
 async def get_playlists(
     sessionId: str = Query(...),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
     authenticated: bool = Depends(verify_password)
 ):
-    """Get playlists from all services"""
+    """Get playlists from all services with pagination"""
     session = get_session(sessionId)
-    playlists = await aggregate(session, "get_playlists")
+    playlists = await aggregate(session, "get_playlists", offset=offset, limit=limit)
     return {"playlists": playlists}
+
+
+@app.get("/api/playlists/{playlistId}/tracks")
+async def get_playlist_tracks(
+    playlistId: str,
+    sessionId: str = Query(...),
+    authenticated: bool = Depends(verify_password)
+):
+    """Get tracks from a specific playlist"""
+    session = get_session(sessionId)
+
+    # Auto-connect YouTube Music if available and not connected
+    if "youtubeMusic" not in session["services"] and settings.youtube_music_cookie:
+        logger.info("[Playlist Tracks] Auto-connecting YouTube Music")
+        try:
+            ytm = YouTubeMusicAggregator({
+                "cookie": settings.youtube_music_cookie,
+                "profile": settings.youtube_music_profile,
+                "brand_account_id": settings.youtube_music_brand_account_id
+            })
+            if await ytm.authenticate():
+                session["services"]["youtubeMusic"] = ytm
+                logger.info("[Playlist Tracks] ✓ YouTube Music auto-connected")
+        except Exception as e:
+            logger.error(f"[Playlist Tracks] Auto-connect failed: {e}")
+
+    # Get playlist tracks from YouTube Music service
+    ytm_service = session["services"].get("youtubeMusic")
+    if not ytm_service:
+        raise HTTPException(404, "YouTube Music not connected")
+
+    tracks = await ytm_service.get_playlist_tracks(playlistId)
+    return {"tracks": tracks}
 
 
 @app.get("/api/artists")
 async def get_artists(
     sessionId: str = Query(...),
     type: str = Query("user"),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
     authenticated: bool = Depends(verify_password)
 ):
-    """Get artists from all services"""
+    """Get artists from all services with pagination"""
     session = get_session(sessionId)
-    artists = await aggregate(session, "get_artists", type)
+    artists = await aggregate(session, "get_artists", type, offset=offset, limit=limit)
     return {"artists": artists}
 
 
