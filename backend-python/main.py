@@ -329,6 +329,34 @@ async def get_playlists(
     return {"playlists": playlists}
 
 
+@app.get("/api/playlists/{playlistId}/tracks")
+async def get_playlist_tracks(
+    playlistId: str,
+    sessionId: str = Query(...),
+    authenticated: bool = Depends(verify_password)
+):
+    """Get tracks for a specific playlist"""
+    session = get_session(sessionId)
+    
+    # Find the service that owns this playlist
+    tracks = []
+    for service_name, service in session["services"].items():
+        try:
+            if hasattr(service, "get_playlist_tracks"):
+                service_tracks = await service.get_playlist_tracks(playlistId)
+                if service_tracks:
+                    tracks.extend(service_tracks)
+                    break
+        except Exception as e:
+            logger.warning(f"[API] Failed to get playlist tracks from {service_name}: {e}")
+            continue
+    
+    if not tracks:
+        raise HTTPException(404, f"Playlist {playlistId} not found or no tracks available")
+    
+    return {"tracks": tracks}
+
+
 @app.get("/api/albums/{albumId}/tracks")
 async def get_album_tracks(
     albumId: str,
