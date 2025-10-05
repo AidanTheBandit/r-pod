@@ -376,6 +376,18 @@ async def get_artists(
     return {"artists": artists}
 
 
+@app.get("/api/artists/{artistId}/albums")
+async def get_artist_albums(
+    artistId: str,
+    sessionId: str = Query(...),
+    authenticated: bool = Depends(verify_password)
+):
+    """Get albums for a specific artist"""
+    session = get_session(sessionId)
+    albums = await aggregate(session, "get_artist_albums", artistId)
+    return {"albums": albums}
+
+
 @app.get("/api/search")
 async def search(
     sessionId: str = Query(...),

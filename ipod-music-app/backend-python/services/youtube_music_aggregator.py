@@ -1301,7 +1301,110 @@ class YouTubeMusicAggregator(BaseMusicService):
         
         return radio_tracks
     
-    def _map_ytm_track(self, track: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    async def get_artist_albums(self, artist_id: str) -> List[Dict[str, Any]]:
+        """Get albums for a specific artist"""
+        if not self.is_authenticated:
+            await self.authenticate()
+        
+        albums = []
+        
+        try:
+            # Remove the ytm: prefix if present
+            clean_artist_id = artist_id.replace("ytm:", "") if artist_id.startswith("ytm:") else artist_id
+            
+            logger.info(f"[YTM] Getting albums for artist: {clean_artist_id}")
+            
+            # Try to get artist details first to get the artist name
+            artist_name = None
+            try:
+                artist_data = await self._run_sync(self.ytm.get_artist, clean_artist_id)
+                if artist_data and artist_data.get("name"):
+                    artist_name = artist_data["name"]
+                    logger.info(f"[YTM] Found artist name: {artist_name}")
+                    
+                    # If we have artist data, check if it contains albums
+                    if artist_data.get("albums") and artist_data["albums"].get("results"):
+                        for album in artist_data["albums"]["results"]:
+                            mapped = self._map_ytm_album(album)
+                            if mapped:
+                                albums.append(mapped)
+                        
+                        logger.info(f"[YTM] ✓ Found {len(albums)} albums directly from artist page")
+                        return albums
+            except Exception as e:
+                logger.warning(f"[YTM] Failed to get artist details: {e}")
+            
+            # Fallback: search for albums by artist name
+            if not artist_name:
+                # Try to get artist name from search
+                try:
+                    search_results = await self._run_sync(
+                        self.ytm.search,
+                        clean_artist_id,
+                        filter="artists",
+                        limit=1
+                    )
+                    
+                    if search_results and len(search_results) > 0:
+                        artist_name = search_results[0].get("artist") or search_results[0].get("name")
+                        logger.info(f"[YTM] Got artist name from search: {artist_name}")
+                except Exception as e:
+                    logger.warning(f"[YTM] Failed to search for artist: {e}")
+                    artist_name = clean_artist_id  # Use the ID as fallback
+            
+            if artist_name:
+                # Search for albums by this artist
+                search_query = f'"{artist_name}" albums'
+                logger.info(f"[YTM] Searching for albums with query: {search_query}")
+                
+                search_results = await self._run_sync(
+                    self.ytm.search,
+                    search_query,
+                    filter="albums",
+                    limit=20
+                )
+                
+                if search_results:
+                    for album in search_results:
+                        # Filter to ensure the album is actually by this artist
+                        album_artist = None
+                        if album.get("artists") and len(album["artists"]) > 0:
+                            album_artist = album["artists"][0].get("name")
+                        elif album.get("artist"):
+                            album_artist = album["artist"].get("name") if isinstance(album["artist"], dict) else str(album["artist"])
+                        
+                        # Check if this album matches our artist (case insensitive)
+                        if album_artist and (
+                            album_artist.lower() == artist_name.lower() or
+                            artist_name.lower() in album_artist.lower() or
+                            album_artist.lower() in artist_name.lower()
+                        ):
+                            mapped = self._map_ytm_album(album)
+                            if mapped:
+                                albums.append(mapped)
+                
+                logger.info(f"[YTM] ✓ Found {len(albums)} albums for artist {artist_name}")
+            else:
+                logger.warning(f"[YTM] Could not determine artist name for {clean_artist_id}")
+            
+        except Exception as e:
+            logger.error(f"[YTM] Error getting artist albums: {e}")
+        
+        return albums
+    
+    def _get_best_thumbnail(self, thumbnails: List[Dict[str, Any]]) -> Optional[str]:
+        """Get the highest quality thumbnail URL"""
+        if not thumbnails:
+            return None
+        
+        # Sort by resolution (width * height), highest first
+        sorted_thumbs = sorted(
+            thumbnails,
+            key=lambda t: (t.get('width', 0) * t.get('height', 0)),
+            reverse=True
+        )
+        
+        return sorted_thumbs[0].get('url')
         """Map YouTube Music track to standard format"""
         try:
             video_id = track.get("videoId")
@@ -1329,7 +1432,7 @@ class YouTubeMusicAggregator(BaseMusicService):
             # Get thumbnail
             thumbnail = None
             if track.get("thumbnails") and len(track["thumbnails"]) > 0:
-                thumbnail = track["thumbnails"][0].get("url")
+                thumbnail = self._get_best_thumbnail(track["thumbnails"])
             elif track.get("thumbnail"):
                 thumbnail = track["thumbnail"]
             
@@ -1368,7 +1471,7 @@ class YouTubeMusicAggregator(BaseMusicService):
             # Get thumbnail
             thumbnail = None
             if album.get("thumbnails") and len(album["thumbnails"]) > 0:
-                thumbnail = album["thumbnails"][0].get("url")
+                thumbnail = self._get_best_thumbnail(album["thumbnails"])
             
             return {
                 "id": f"ytm:{browse_id}",
@@ -1393,7 +1496,7 @@ class YouTubeMusicAggregator(BaseMusicService):
             # Get thumbnail
             thumbnail = None
             if playlist.get("thumbnails") and len(playlist["thumbnails"]) > 0:
-                thumbnail = playlist["thumbnails"][0].get("url")
+                thumbnail = self._get_best_thumbnail(playlist["thumbnails"])
             
             # Get track count from various possible fields
             track_count = playlist.get("count", 0)
@@ -1427,7 +1530,7 @@ class YouTubeMusicAggregator(BaseMusicService):
             # Get thumbnail
             thumbnail = None
             if artist.get("thumbnails") and len(artist["thumbnails"]) > 0:
-                thumbnail = artist["thumbnails"][0].get("url")
+                thumbnail = self._get_best_thumbnail(artist["thumbnails"])
             
             return {
                 "id": f"ytm:{browse_id}",

@@ -116,7 +116,7 @@ class SpotifyAggregator(BaseMusicService):
                     "title": album["name"],
                     "artist": album["artists"][0]["name"] if album["artists"] else "Unknown",
                     "year": album["release_date"][:4] if album.get("release_date") else None,
-                    "coverArt": self._get_best_image(album["images"]) if album.get("images") else None,
+                    "coverArt": album["images"][0]["url"] if album["images"] else None,
                     "trackCount": album["total_tracks"],
                     "service": "spotify"
                 })
@@ -149,7 +149,7 @@ class SpotifyAggregator(BaseMusicService):
                     "title": playlist["name"],
                     "description": playlist.get("description", ""),
                     "trackCount": playlist["tracks"]["total"],
-                    "coverArt": self._get_best_image(playlist["images"]) if playlist.get("images") else None,
+                    "coverArt": playlist["images"][0]["url"] if playlist["images"] else None,
                     "service": "spotify"
                 })
             
@@ -178,7 +178,7 @@ class SpotifyAggregator(BaseMusicService):
                 artists.append({
                     "id": f"spotify:{artist['id']}",
                     "name": artist["name"],
-                    "image": self._get_best_image(artist["images"]) if artist.get("images") else None,
+                    "image": artist["images"][0]["url"] if artist["images"] else None,
                     "service": "spotify"
                 })
             
@@ -212,7 +212,7 @@ class SpotifyAggregator(BaseMusicService):
                     "artist": track["artists"][0]["name"] if track["artists"] else "Unknown",
                     "album": track["album"]["name"],
                     "duration": track["duration_ms"] // 1000,
-                    "albumArt": self._get_best_image(track["album"]["images"]) if track["album"].get("images") else None,
+                    "albumArt": track["album"]["images"][0]["url"] if track["album"]["images"] else None,
                     "streamUrl": track.get("preview_url"),
                     "service": "spotify",
                     "type": "song"
@@ -224,20 +224,6 @@ class SpotifyAggregator(BaseMusicService):
             logger.error(f"[Spotify] Search error: {e}")
         
         return results
-    
-    def _get_best_image(self, images: List[Dict[str, Any]]) -> Optional[str]:
-        """Get the highest quality image URL"""
-        if not images:
-            return None
-        
-        # Sort by resolution (width * height), highest first
-        sorted_images = sorted(
-            images,
-            key=lambda img: (img.get('width', 0) * img.get('height', 0)),
-            reverse=True
-        )
-        
-        return sorted_images[0].get('url')
     
     async def get_artist_albums(self, artist_id: str) -> List[Dict[str, Any]]:
         """Get albums for a specific artist"""
@@ -265,7 +251,7 @@ class SpotifyAggregator(BaseMusicService):
                     "title": album["name"],
                     "artist": album["artists"][0]["name"] if album["artists"] else "Unknown",
                     "year": album["release_date"][:4] if album.get("release_date") else None,
-                    "coverArt": self._get_best_image(album["images"]) if album.get("images") else None,
+                    "coverArt": album["images"][0]["url"] if album["images"] else None,
                     "trackCount": album["total_tracks"],
                     "service": "spotify"
                 })
@@ -276,3 +262,7 @@ class SpotifyAggregator(BaseMusicService):
             logger.error(f"[Spotify] Error getting artist albums: {e}")
         
         return albums
+
+```<parameter name="oldString">        return results
+
+```
