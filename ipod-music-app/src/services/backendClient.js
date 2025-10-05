@@ -137,8 +137,10 @@ export const backendAPI = {
     return response.data.playlists || []
   },
 
-  async getArtists() {
-    const response = await client.get('/api/artists')
+  async getArtists(type = 'user') {
+    const response = await client.get('/api/artists', {
+      params: { type }
+    })
     return response.data.artists || []
   },
 

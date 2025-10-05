@@ -190,7 +190,7 @@ function NowPlayingView() {
         </div>
       </div>
       
-      {/* Hidden audio element */}
+      {/* Audio element */}
       <audio
         ref={audioRef}
         src={currentTrack.streamUrl}

@@ -1,15 +1,14 @@
+import { useState } from 'react'
 import { useServiceStore } from '../store/serviceStore'
 import { useArtists } from '../hooks/useMusicData'
 import ListView from '../components/ListView'
 import './ArtistsView.css'
 
 function ArtistsView() {
-  // Fetch artists from configured services
-  const { data: artists = [], isLoading, error } = useArtists()
+  const [artistType, setArtistType] = useState('user') // 'user' or 'popular'
   
-  console.log('ArtistsView: artists data:', artists)
-  console.log('ArtistsView: isLoading:', isLoading)
-  console.log('ArtistsView: error:', error)
+  // Fetch artists from configured services
+  const { data: artists = [], isLoading, error } = useArtists(artistType)
   
   // Format artists for ListView
   const formattedArtists = artists.map(artist => ({
@@ -63,7 +62,21 @@ function ArtistsView() {
     <div className="artists-view view-wrapper">
       {formattedArtists.length > 0 && (
         <div className="view-header">
-          <h2>Popular Artists</h2>
+          <h2>{artistType === 'user' ? 'Your Artists' : 'Popular Artists'}</h2>
+          <div className="view-controls">
+            <button 
+              className={`control-btn ${artistType === 'user' ? 'active' : ''}`}
+              onClick={() => setArtistType('user')}
+            >
+              Your Artists
+            </button>
+            <button 
+              className={`control-btn ${artistType === 'popular' ? 'active' : ''}`}
+              onClick={() => setArtistType('popular')}
+            >
+              Popular
+            </button>
+          </div>
         </div>
       )}
       <ListView items={formattedArtists} onItemClick={handleArtistClick} />

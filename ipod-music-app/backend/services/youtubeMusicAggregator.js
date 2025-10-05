@@ -64,17 +64,109 @@ export class YouTubeMusicAggregator {
   }
 
   async getTracks() {
-    console.log('[YTM] getTracks() called')
+    console.log('[YTM] getTracks() called - fetching Quick Picks & Listen Again')
     
     if (!await this.authenticate()) {
       console.error('[YTM] getTracks: Authentication failed')
       return []
     }
 
-    console.log('[YTM] getTracks: Falling back to search-based recommendations')
+    try {
+      // Get home sections to find "Quick Picks" and "Listen Again"
+      const homeSections = typeof this.ytm.getHomeSections === 'function'
+        ? await this.ytm.getHomeSections()
+        : (typeof this.ytm.getHome === 'function' ? await this.ytm.getHome() : [])
+
+      console.log('[YTM] Home sections response:', {
+        type: typeof homeSections,
+        isArray: Array.isArray(homeSections),
+        length: homeSections?.length,
+        sectionTitles: homeSections?.map(s => s.title).filter(Boolean)
+      })
+
+      if (!homeSections || !Array.isArray(homeSections)) {
+        console.warn('[YTM] No home sections found, falling back to search')
+        return await this.getFallbackTracks()
+      }
+
+      // Find sections by title (case insensitive) - expanded to include more recommendation types
+      let relevantSections = homeSections.filter(
+        section =>
+          section.title &&
+          (
+            section.title.toLowerCase().includes('quick pick') ||
+            section.title.toLowerCase().includes('listen again') ||
+            section.title.toLowerCase().includes('mixed for you') ||
+            section.title.toLowerCase().includes('recommended') ||
+            section.title.toLowerCase().includes('for you') ||
+            section.title.toLowerCase().includes('trending') ||
+            section.title.toLowerCase().includes('today') ||
+            section.title.toLowerCase().includes('new') ||
+            section.title.toLowerCase().includes('popular') ||
+            section.title.toLowerCase().includes('hits') ||
+            section.title.toLowerCase().includes('jams')
+          )
+      )
+
+      console.log('[YTM] Found relevant home sections:', relevantSections.map(s => s.title))
+
+      // If no relevant sections found, try to get tracks from first few sections that have tracks
+      if (relevantSections.length === 0) {
+        console.log('[YTM] No specific sections found, using sections with track content')
+        relevantSections = homeSections.filter(section => 
+          section.contents && 
+          Array.isArray(section.contents) && 
+          section.contents.length > 0 &&
+          section.contents.some(item => item.videoId) // Has actual tracks
+        ).slice(0, 5) // Take first 5 sections with content
+      }
+
+      // Aggregate tracks from relevant sections
+      const tracks = []
+      relevantSections.forEach(section => {
+        if (section.contents && Array.isArray(section.contents)) {
+          console.log(`[YTM] Processing section "${section.title}" with ${section.contents.length} items`)
+          
+          section.contents.forEach((item, index) => {
+            if (item.videoId && tracks.length < 100) { // Limit to 100 tracks total
+              try {
+                tracks.push({
+                  id: `ytm:${item.videoId}`,
+                  title: item.title || item.name,
+                  artist: item.artist?.name || item.artists?.[0]?.name || 'Unknown Artist',
+                  album: item.album?.name || 'Unknown Album',
+                  duration: item.duration,
+                  albumArt: item.thumbnails?.[0]?.url || item.thumbnail?.url,
+                  streamUrl: `/api/stream/youtube/${item.videoId}`,
+                  service: 'youtubeMusic',
+                  section: section.title
+                })
+              } catch (mapError) {
+                console.error(`[YTM] Error mapping item ${index} in section "${section.title}":`, mapError.message)
+              }
+            }
+          })
+        }
+      })
+
+      console.log(`[YTM] ✓ Returning ${tracks.length} tracks from Quick Picks & Listen Again`)
+      return tracks
+
+    } catch (error) {
+      console.error('[YTM] getTracks error:', {
+        message: error.message,
+        stack: error.stack
+      })
+      // Fallback to search-based tracks
+      return await this.getFallbackTracks()
+    }
+  }
+
+  // Fallback method for when home sections don't work
+  async getFallbackTracks() {
+    console.log('[YTM] getFallbackTracks: Using search-based recommendations')
     
     try {
-      // ytmusic-api doesn't have getLibrarySongs, use search for popular tracks
       const queries = ['popular songs 2025', 'top hits', 'trending music']
       const allTracks = []
       
@@ -112,14 +204,11 @@ export class YouTubeMusicAggregator {
         }
       }).filter(Boolean)
 
-      console.log(`[YTM] ✓ Mapped ${mappedTracks.length} tracks successfully`)
+      console.log(`[YTM] ✓ Mapped ${mappedTracks.length} fallback tracks successfully`)
       return mappedTracks
 
     } catch (error) {
-      console.error('[YTM] getTracks error:', {
-        message: error.message,
-        stack: error.stack
-      })
+      console.error('[YTM] getFallbackTracks error:', error.message)
       return []
     }
   }
@@ -174,7 +263,7 @@ export class YouTubeMusicAggregator {
   }
 
   async getPlaylists() {
-    console.log('[YTM] getPlaylists() called')
+    console.log('[YTM] getPlaylists() called - fetching user playlists')
     
     if (!await this.authenticate()) {
       console.error('[YTM] getPlaylists: Authentication failed')
@@ -182,10 +271,10 @@ export class YouTubeMusicAggregator {
     }
 
     try {
-      console.log('[YTM] Searching for popular playlists...')
-      const playlists = await this.ytm.searchPlaylists('popular playlists')
+      console.log('[YTM] Fetching user playlists from library...')
+      const playlists = await this.ytm.getLibraryPlaylists()
       
-      console.log('[YTM] searchPlaylists response:', {
+      console.log('[YTM] getLibraryPlaylists response:', {
         type: typeof playlists,
         isArray: Array.isArray(playlists),
         length: playlists?.length,
@@ -196,24 +285,31 @@ export class YouTubeMusicAggregator {
       })
       
       if (!playlists || !Array.isArray(playlists) || playlists.length === 0) {
-        console.warn('[YTM] No playlists found')
+        console.warn('[YTM] No user playlists found')
         return []
       }
       
-      const mappedPlaylists = playlists.slice(0, 20).map(playlist => ({
-        id: `ytm:${playlist.playlistId}`,
-        title: playlist.title,
-        description: playlist.description || '',
-        trackCount: playlist.trackCount || 0,
-        coverArt: playlist.thumbnails?.[0]?.url,
-        service: 'youtubeMusic'
-      }))
+      const mappedPlaylists = playlists.map((playlist, index) => {
+        if (index === 0) {
+          console.log('[YTM] First playlist object:', JSON.stringify(playlist, null, 2))
+        }
+        
+        return {
+          id: `ytm:${playlist.playlistId}`,
+          name: playlist.title || playlist.name || 'Unknown Playlist',
+          title: playlist.title || playlist.name || 'Unknown Playlist',
+          description: playlist.description || '',
+          trackCount: playlist.trackCount || playlist.count || 0,
+          coverArt: playlist.thumbnails?.[0]?.url,
+          service: 'youtubeMusic'
+        }
+      })
 
-      console.log(`[YTM] ✓ Mapped ${mappedPlaylists.length} playlists successfully`)
+      console.log(`[YTM] ✓ Mapped ${mappedPlaylists.length} user playlists successfully`)
       return mappedPlaylists
 
     } catch (error) {
-      console.error('[YTM] getPlaylists error:', {
+      console.error('[YTM] getLibraryPlaylists error:', {
         message: error.message,
         stack: error.stack
       })
@@ -221,8 +317,8 @@ export class YouTubeMusicAggregator {
     }
   }
 
-  async getArtists() {
-    console.log('[YTM] getArtists() called')
+  async getArtists(type = 'user') {
+    console.log('[YTM] getArtists() called - fetching', type, 'artists')
     
     if (!await this.authenticate()) {
       console.error('[YTM] getArtists: Authentication failed')
@@ -230,44 +326,84 @@ export class YouTubeMusicAggregator {
     }
 
     try {
-      console.log('[YTM] Searching for popular artists...')
-      const artists = await this.ytm.searchArtists('popular artists')
-      
-      console.log('[YTM] searchArtists response:', {
-        type: typeof artists,
-        isArray: Array.isArray(artists),
-        length: artists?.length,
-        sample: artists?.[0] ? {
-          name: artists[0].name,
-          browseId: artists[0].browseId
-        } : null
-      })
-      
-      if (!artists || !Array.isArray(artists) || artists.length === 0) {
-        console.warn('[YTM] No artists found')
-        return []
-      }
-      
-      const mappedArtists = artists.slice(0, 20).map((artist, index) => {
-        console.log(`[YTM] Mapping artist ${index}:`, {
-          name: artist.name,
-          artistId: artist.artistId,
-          browseId: artist.browseId,
-          id: artist.id,
-          type: artist.type
+      if (type === 'popular') {
+        console.log('[YTM] Searching for popular artists...')
+        const artists = await this.ytm.searchArtists('popular artists')
+        
+        console.log('[YTM] searchArtists response:', {
+          type: typeof artists,
+          isArray: Array.isArray(artists),
+          length: artists?.length,
+          sample: artists?.[0] ? {
+            name: artists[0].name,
+            browseId: artists[0].browseId
+          } : null
         })
         
-        return {
-          id: `ytm:${artist.artistId || artist.browseId || artist.id}`,
-          name: artist.name,
-          image: artist.thumbnails?.[0]?.url,
-          service: 'youtubeMusic'
+        if (!artists || !Array.isArray(artists) || artists.length === 0) {
+          console.warn('[YTM] No artists found')
+          return []
         }
-      })
+        
+        const mappedArtists = artists.slice(0, 20).map((artist, index) => {
+          console.log(`[YTM] Mapping artist ${index}:`, {
+            name: artist.name,
+            artistId: artist.artistId,
+            browseId: artist.browseId,
+            id: artist.id,
+            type: artist.type
+          })
+          
+          return {
+            id: `ytm:${artist.artistId || artist.browseId || artist.id}`,
+            name: artist.name,
+            image: artist.thumbnails?.[0]?.url,
+            service: 'youtubeMusic'
+          }
+        })
 
-      console.log(`[YTM] ✓ Mapped ${mappedArtists.length} artists successfully`)
-      return mappedArtists
+        console.log(`[YTM] ✓ Mapped ${mappedArtists.length} popular artists successfully`)
+        return mappedArtists
+      } else {
+        // User artists
+        console.log('[YTM] Fetching user artists from library...')
+        const artists = await this.ytm.getLibraryArtists()
+        
+        console.log('[YTM] getLibraryArtists response:', {
+          type: typeof artists,
+          isArray: Array.isArray(artists),
+          length: artists?.length,
+          sample: artists?.[0] ? {
+            name: artists[0].name,
+            browseId: artists[0].browseId
+          } : null
+        })
+        
+        if (!artists || !Array.isArray(artists) || artists.length === 0) {
+          console.warn('[YTM] No user artists found')
+          return []
+        }
+        
+        const mappedArtists = artists.map((artist, index) => {
+          console.log(`[YTM] Mapping artist ${index}:`, {
+            name: artist.name,
+            artistId: artist.artistId,
+            browseId: artist.browseId,
+            id: artist.id,
+            type: artist.type
+          })
+          
+          return {
+            id: `ytm:${artist.artistId || artist.browseId || artist.id}`,
+            name: artist.name,
+            image: artist.thumbnails?.[0]?.url,
+            service: 'youtubeMusic'
+          }
+        })
 
+        console.log(`[YTM] ✓ Mapped ${mappedArtists.length} user artists successfully`)
+        return mappedArtists
+      }
     } catch (error) {
       console.error('[YTM] getArtists error:', {
         message: error.message,
@@ -383,13 +519,52 @@ export class YouTubeMusicAggregator {
     }
   }
 
-  async getProfiles() {
-    console.log('[YTM] getProfiles() called')
-    return [
-      { id: '0', name: 'Primary Account', description: 'Your main YouTube Music account' },
-      { id: '1', name: 'Brand Account 1', description: 'First brand channel' },
-      { id: '2', name: 'Brand Account 2', description: 'Second brand channel' }
-    ]
+  // Get radio recommendations based on a seed track (YouTube Music radio feature)
+  async getRadio(videoId) {
+    console.log('[YTM] getRadio() called for videoId:', videoId)
+    
+    if (!await this.authenticate()) {
+      console.error('[YTM] getRadio: Authentication failed')
+      return []
+    }
+
+    try {
+      // Use getWatchPlaylist to get radio recommendations (autoplay queue)
+      const watchPlaylist = await this.ytm.getWatchPlaylist(videoId)
+      
+      console.log('[YTM] getWatchPlaylist response:', {
+        type: typeof watchPlaylist,
+        hasTracks: watchPlaylist?.tracks ? true : false,
+        trackCount: watchPlaylist?.tracks?.length || 0
+      })
+      
+      if (!watchPlaylist || !watchPlaylist.tracks || !Array.isArray(watchPlaylist.tracks)) {
+        console.warn('[YTM] No radio tracks found')
+        return []
+      }
+
+      const mappedTracks = watchPlaylist.tracks.slice(0, 20).map(track => ({
+        id: `ytm:${track.videoId}`,
+        title: track.title,
+        artist: track.artists?.[0]?.name || 'Unknown Artist',
+        album: track.album?.name || 'Unknown Album',
+        duration: track.duration,
+        albumArt: track.thumbnails?.[0]?.url,
+        streamUrl: `/api/stream/youtube/${track.videoId}`,
+        service: 'youtubeMusic',
+        section: 'Radio'
+      }))
+
+      console.log(`[YTM] ✓ Found ${mappedTracks.length} radio tracks`)
+      return mappedTracks
+
+    } catch (error) {
+      console.error('[YTM] getRadio error:', {
+        message: error.message,
+        stack: error.stack
+      })
+      return []
+    }
   }
 
   async switchProfile(profileId) {

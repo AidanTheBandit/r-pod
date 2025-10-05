@@ -84,40 +84,56 @@ const getSession = (sessionId) => {
   return session;
 };
 
-// Auto-initialize YouTube Music if env cookie is available
-async function ensureYouTubeMusicConnected(session) {
-  if (session.services.youtubeMusic) {
-    console.log('[AutoConnect] YouTube Music already connected');
-    return true;
-  }
-
+// Function to log available YouTube Music profiles/accounts
+async function logAvailableYouTubeProfiles() {
   if (!process.env.YOUTUBE_MUSIC_COOKIE) {
-    console.log('[AutoConnect] No YOUTUBE_MUSIC_COOKIE in environment, skipping auto-connect');
-    return false;
+    console.log('[Profiles] No YOUTUBE_MUSIC_COOKIE set, skipping profile enumeration');
+    return;
   }
 
-  try {
-    console.log('[AutoConnect] Auto-connecting YouTube Music from environment...');
-    
-    const credentials = {
-      cookie: process.env.YOUTUBE_MUSIC_COOKIE,
-      profile: '0'
-    };
+  console.log('[Profiles] Enumerating available YouTube Music profiles/accounts...');
 
-    session.services.youtubeMusic = new YouTubeMusicAggregator(credentials);
-    const authSuccess = await session.services.youtubeMusic.authenticate();
+  const maxProfiles = 5; // Try up to 5 profiles
+  const availableProfiles = [];
 
-    if (!authSuccess) {
-      console.error('[AutoConnect] ✗ Auto-connect failed');
-      delete session.services.youtubeMusic;
-      return false;
+  for (let profile = 0; profile < maxProfiles; profile++) {
+    try {
+      console.log(`[Profiles] Testing profile ${profile}...`);
+      
+      const credentials = {
+        cookie: process.env.YOUTUBE_MUSIC_COOKIE,
+        profile: profile.toString()
+      };
+
+      const tempAggregator = new YouTubeMusicAggregator(credentials);
+      const authSuccess = await tempAggregator.authenticate();
+
+      if (authSuccess) {
+        // Try to get channel name from home sections
+        try {
+          const homeSections = await tempAggregator.ytm.getHomeSections();
+          const channelName = homeSections?.[0]?.title || `Profile ${profile}`;
+          availableProfiles.push({ profile, name: channelName });
+          console.log(`[Profiles] ✓ Profile ${profile}: ${channelName}`);
+        } catch (nameError) {
+          availableProfiles.push({ profile, name: `Profile ${profile}` });
+          console.log(`[Profiles] ✓ Profile ${profile}: Available (name unknown)`);
+        }
+      } else {
+        console.log(`[Profiles] ✗ Profile ${profile}: Not available`);
+        break; // Stop at first failure
+      }
+    } catch (error) {
+      console.log(`[Profiles] ✗ Profile ${profile}: Error - ${error.message}`);
+      break;
     }
+  }
 
-    console.log('[AutoConnect] ✓ YouTube Music auto-connected successfully');
-    return true;
-  } catch (error) {
-    console.error('[AutoConnect] ✗ Error:', error.message);
-    return false;
+  if (availableProfiles.length > 0) {
+    console.log('[Profiles] Available profiles:', availableProfiles.map(p => `${p.profile} (${p.name})`).join(', '));
+    console.log(`[Profiles] Use YOUTUBE_MUSIC_PROFILE env var to select (default: 0)`);
+  } else {
+    console.log('[Profiles] No profiles available');
   }
 }
 
@@ -173,7 +189,7 @@ app.post('/api/services/connect', authenticate, async (req, res) => {
         
         const ytmCredentials = credentials?.cookie ? credentials : {
           cookie: process.env.YOUTUBE_MUSIC_COOKIE,
-          profile: credentials?.profile || '0'
+          profile: credentials?.profile || '1'
         };
         
         console.log('[Connect] YouTube Music credentials:', {
@@ -358,7 +374,9 @@ app.get('/api/playlists', authenticate, async (req, res) => {
 
 app.get('/api/artists', authenticate, async (req, res) => {
   console.log('[API] GET /api/artists');
-  const { sessionId } = req.query;
+  const { sessionId, type = 'user' } = req.query;
+  
+  console.log('[API] Query params:', { sessionId, type });
   
   if (!sessionId) {
     console.error('[API] ✗ No sessionId provided');
@@ -366,7 +384,7 @@ app.get('/api/artists', authenticate, async (req, res) => {
   }
   
   const session = getSession(sessionId);
-  const artists = await aggregate(session, 'getArtists');
+  const artists = await aggregate(session, 'getArtists', type);
   
   console.log(`[API] ✓ Returning ${artists.length} artists`);
   res.json({ artists });
@@ -409,6 +427,39 @@ app.get('/api/recommendations', authenticate, async (req, res) => {
   
   console.log(`[API] ✓ Returning ${recommendations.length} recommendations`);
   res.json({ recommendations });
+});
+
+app.get('/api/radio/:videoId', authenticate, async (req, res) => {
+  console.log('[API] GET /api/radio/:videoId');
+  const { sessionId } = req.query;
+  const { videoId } = req.params;
+  
+  console.log('[API] Params:', { sessionId, videoId });
+  
+  if (!sessionId) {
+    console.error('[API] ✗ No sessionId provided');
+    return res.status(400).json({ error: 'sessionId required' });
+  }
+  
+  const session = getSession(sessionId);
+  
+  if (!session.services.youtubeMusic) {
+    console.error('[API] ✗ YouTube Music not connected');
+    return res.status(404).json({ error: 'YouTube Music not connected' });
+  }
+  
+  try {
+    console.log(`[API] Getting radio recommendations for ${videoId}`);
+    const radioTracks = await session.services.youtubeMusic.getRadio(videoId);
+    console.log(`[API] ✓ Returning ${radioTracks.length} radio tracks`);
+    res.json({ tracks: radioTracks });
+  } catch (error) {
+    console.error('[API] ✗ Error getting radio:', {
+      message: error.message,
+      stack: error.stack
+    });
+    res.status(500).json({ error: error.message });
+  }
 });
 
 app.get('/api/profiles/:service', authenticate, async (req, res) => {
@@ -551,13 +602,14 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000); // Run every 5 minutes
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log('='.repeat(60));
   console.log(`Universal Music Aggregator - http://localhost:${PORT}`);
   console.log('='.repeat(60));
   console.log('Environment:');
   console.log(`  SERVER_PASSWORD: ${process.env.SERVER_PASSWORD ? '✓ Set' : '✗ Not set'}`);
   console.log(`  YOUTUBE_MUSIC_COOKIE: ${process.env.YOUTUBE_MUSIC_COOKIE ? `✓ Set (${process.env.YOUTUBE_MUSIC_COOKIE.length} chars)` : '✗ Not set'}`);
+  console.log(`  YOUTUBE_MUSIC_PROFILE: ${process.env.YOUTUBE_MUSIC_PROFILE || '0 (default)'}`);
   console.log(`  CACHE_TTL: ${process.env.CACHE_TTL || 600}s`);
   console.log(`  CORS_ORIGIN: ${process.env.CORS_ORIGIN || 'http://localhost:3000'}`);
   console.log('='.repeat(60));
@@ -577,4 +629,7 @@ app.listen(PORT, () => {
   console.log('  GET  /api/recommendations?sessionId=xxx');
   console.log('  GET  /api/stream/youtube/:videoId');
   console.log('='.repeat(60));
+
+  // Log available YouTube Music profiles
+  await logAvailableYouTubeProfiles();
 });

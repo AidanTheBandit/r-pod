@@ -40,18 +40,18 @@ export function useAlbums() {
   })
 }
 
-export function useArtists() {
+export function useArtists(type = 'user') {
   return useQuery({
-    queryKey: ['artists'],
+    queryKey: ['artists', type],
     queryFn: async () => {
       try {
-        return await backendAPI.getArtists()
+        return await backendAPI.getArtists(type)
       } catch (error) {
         console.error('Error fetching artists:', error)
         throw error
       }
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 2,
     retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
   })

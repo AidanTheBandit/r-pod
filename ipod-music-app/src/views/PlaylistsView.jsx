@@ -58,7 +58,7 @@ function PlaylistsView() {
     <div className="playlists-view view-wrapper">
       {formattedPlaylists.length > 0 && (
         <div className="view-header">
-          <h2>Popular Playlists</h2>
+          <h2>Your Playlists</h2>
         </div>
       )}
       <ListView items={formattedPlaylists} onItemClick={handlePlaylistClick} />
