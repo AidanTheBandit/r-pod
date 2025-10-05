@@ -1,0 +1,209 @@
+/**
+ * Now Playing View Styles
+ */
+
+.now-playing-view {
+  width: 100%;
+  height: 100%;
+}
+
+.now-playing-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 5vw;
+  background: linear-gradient(180deg, #e8f0f7 0%, #d8e8f7 100%);
+  overflow-y: auto;
+}
+
+/* Empty state */
+.now-playing-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  gap: 3vh;
+}
+
+.empty-icon {
+  font-size: 20vw;
+  opacity: 0.3;
+}
+
+.empty-text {
+  font-size: 4.5vw;
+}
+
+/* Album Art */
+.album-art-container {
+  width: 70vw;
+  height: 70vw;
+  margin-top: 3vh;
+  margin-bottom: 4vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.album-art {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 2vw;
+  box-shadow: 0 1vh 3vh rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.album-art-placeholder {
+  font-size: 20vw;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.album-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Song Information */
+.song-info {
+  width: 100%;
+  text-align: center;
+  margin-bottom: 3vh;
+}
+
+.song-title {
+  font-size: 4.5vw;
+  font-weight: 600;
+  color: #000;
+  margin-bottom: 1.5vh;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 2vw;
+}
+
+.song-artist {
+  font-size: 3.8vw;
+  color: #555;
+  margin-bottom: 1vh;
+}
+
+.song-album {
+  font-size: 3.5vw;
+  color: #777;
+}
+
+/* Progress Bar */
+.progress-container {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 2vw;
+  margin-bottom: 3vh;
+}
+
+.progress-time {
+  font-size: 3vw;
+  color: #666;
+  min-width: 12vw;
+  font-variant-numeric: tabular-nums;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 1.5vh;
+  background: #d0d0d0;
+  border-radius: 1vh;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #5a9fd4 0%, #4a8fc4 100%);
+  border-radius: 1vh;
+  transition: width 0.1s linear;
+}
+
+/* Playback Controls */
+.playback-controls {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8vw;
+  margin-top: 2vh;
+  margin-bottom: 2vh;
+}
+
+.control-btn {
+  width: 18.33vw; /* 44px minimum touch target */
+  height: 13.75vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 7vw;
+  color: #333;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.control-btn:active {
+  background: rgba(255, 255, 255, 0.8);
+  transform: scale(0.95);
+}
+
+.control-play {
+  width: 22vw;
+  height: 17vh;
+  font-size: 9vw;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+/* Additional Controls */
+.additional-controls {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10vw;
+  margin-top: 2vh;
+}
+
+.control-btn-small {
+  width: 12vw;
+  height: 9vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 5vw;
+  color: #666;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.control-btn-small.active {
+  color: #5a9fd4;
+  background: rgba(90, 159, 212, 0.2);
+}
+
+.control-btn-small:active {
+  transform: scale(0.9);
+}

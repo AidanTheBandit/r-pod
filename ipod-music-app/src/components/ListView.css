@@ -1,0 +1,98 @@
+/**
+ * List View Component Styles
+ */
+
+.ipod-list {
+  list-style: none;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+}
+
+.list-item {
+  width: 100%;
+  min-height: 13.75vh; /* 44px minimum touch target */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 5vw;
+  border-bottom: 0.35vh solid #d0d0d0;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+  gap: 2vw;
+}
+
+.list-item:first-child {
+  border-top: none;
+}
+
+/* iPod Classic Blue Selection Highlight */
+.list-item.selected {
+  background: linear-gradient(180deg, #5a9fd4 0%, #4a8fc4 100%);
+  color: #fff;
+}
+
+.list-item:active {
+  background: linear-gradient(180deg, #4a8fc4 0%, #3a7fb4 100%);
+}
+
+.item-icon {
+  font-size: 6vw;
+  flex-shrink: 0;
+}
+
+.item-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5vh;
+  overflow: hidden;
+}
+
+.item-text {
+  font-size: 4.5vw;
+  font-weight: 500;
+  color: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.list-item.selected .item-text {
+  color: #fff;
+}
+
+.item-subtitle {
+  font-size: 3.5vw;
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.list-item.selected .item-subtitle {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.item-arrow {
+  font-size: 6vw;
+  color: #999;
+  font-weight: 300;
+  flex-shrink: 0;
+}
+
+.list-item.selected .item-arrow {
+  color: #fff;
+}
+
+.item-value {
+  font-size: 3.8vw;
+  color: #666;
+  flex-shrink: 0;
+}
+
+.list-item.selected .item-value {
+  color: rgba(255, 255, 255, 0.9);
+}
