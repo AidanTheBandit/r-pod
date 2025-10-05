@@ -14,33 +14,139 @@ class LavalinkService extends EventEmitter {
     this.maxReconnectAttempts = 5;
     this.reconnectDelay = 5000;
     this.players = new Map();
-    
-            // Lavalink configuration - using public server
-    this.config = {
-      host: 'lavalink.dev.darrennathanael.com',
-      port: 80,
-      password: 'youshallnotpass',
-      secure: false,
-    };
+
+    this.nodes = this.loadNodes();
+    this.currentNodeIndex = -1;
+    this.rejectUnauthorized = process.env.LAVALINK_REJECT_UNAUTHORIZED !== 'false';
+  }
+
+  loadNodes() {
+    try {
+      if (process.env.LAVALINK_NODES) {
+        const parsed = JSON.parse(process.env.LAVALINK_NODES);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((node, idx) => ({
+            host: node.host,
+            port: Number(node.port) || 2333,
+            password: node.password || 'youshallnotpass',
+            secure: !!node.secure,
+            label: node.label || `node-${idx + 1}`
+          })).filter(node => node.host);
+        }
+      }
+    } catch (error) {
+      console.error('[Lavalink] Failed to parse LAVALINK_NODES env:', error.message);
+    }
+
+    const envHost = process.env.LAVALINK_HOST || 'localhost';
+    const envPort = Number(process.env.LAVALINK_PORT) || 2333;
+    const envPassword = process.env.LAVALINK_PASSWORD || 'music-aggregator-2025';
+    const envSecure = process.env.LAVALINK_SECURE === 'true';
+
+    const nodes = [
+      {
+        host: envHost,
+        port: envPort,
+        password: envPassword,
+        secure: envSecure,
+        label: 'primary-env'
+      }
+    ];
+
+    if (!process.env.LAVALINK_HOST) {
+      nodes.push(
+        {
+          host: 'localhost',
+          port: 2333,
+          password: 'music-aggregator-2025',
+          secure: false,
+          label: 'local-default'
+        },
+        {
+          host: 'lavalink.dev.darrennathanael.com',
+          port: 80,
+          password: 'youshallnotpass',
+          secure: false,
+          label: 'public-darrennathanael'
+        },
+        {
+          host: 'freelavalink.serenetia.com',
+          port: 2333,
+          password: 'youshallnotpass',
+          secure: false,
+          label: 'public-serenetia'
+        }
+      );
+    }
+
+    return nodes;
+  }
+
+  get currentNode() {
+    if (this.currentNodeIndex < 0 || this.currentNodeIndex >= this.nodes.length) {
+      return null;
+    }
+    return this.nodes[this.currentNodeIndex];
+  }
+
+  async pickNextNode() {
+    if (!this.nodes.length) {
+      throw new Error('No Lavalink nodes configured');
+    }
+
+    const initialIndex = this.currentNodeIndex;
+
+    for (let attempts = 0; attempts < this.nodes.length; attempts++) {
+      this.currentNodeIndex = (this.currentNodeIndex + 1) % this.nodes.length;
+      const node = this.currentNode;
+      if (!node) {
+        continue;
+      }
+
+      const healthy = await this.checkNodeHealth(node).catch(() => false);
+      if (healthy) {
+        console.log('[Lavalink] Selected node:', node.label, `${node.host}:${node.port}`);
+        return node;
+      }
+
+      console.warn('[Lavalink] Node unhealthy, skipping:', node.label);
+
+      if (this.currentNodeIndex === initialIndex) {
+        break;
+      }
+    }
+
+    throw new Error('No healthy Lavalink nodes available');
+  }
+
+  async checkNodeHealth(node) {
+    const protocol = node.secure ? 'https' : 'http';
+    const url = `${protocol}://${node.host}:${node.port}/v4/info`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+
+    try {
+      const response = await fetch(url, {
+        headers: { Authorization: node.password },
+        signal: controller.signal
+      });
+      return response.ok;
+    } catch (error) {
+      console.warn('[Lavalink] Health check failed for node', node.label, error.message);
+      return false;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   /**
    * Connect to Lavalink server
    */
   async connect() {
-    const protocol = this.config.secure ? 'wss' : 'ws';
-    const url = `${protocol}://${this.config.host}:${this.config.port}`;
-    
-    console.log('[Lavalink] Connecting to public server:', url);
-    
     try {
-      this.ws = new WebSocket(url, [], {
-        headers: {
-          'Authorization': this.config.password,
-          'User-Id': 'ipod-music-app',
-          'Client-Name': 'iPod-Music-Aggregator/1.0',
-        },
-      });
+      const node = await this.pickNextNode();
+      await this.connectToNode(node);
 
       this.ws.on('open', () => {
         console.log('[Lavalink] ✓ Connected successfully');
@@ -69,9 +175,25 @@ class LavalinkService extends EventEmitter {
       });
 
     } catch (error) {
-      console.error('[Lavalink] Connection failed:', error);
+      console.error('[Lavalink] Connection failed:', error.message || error);
       throw error;
     }
+  }
+
+  async connectToNode(node) {
+    const protocol = node.secure ? 'wss' : 'ws';
+    const url = `${protocol}://${node.host}:${node.port}`;
+
+    console.log('[Lavalink] Connecting to node:', node.label, url);
+
+    this.ws = new WebSocket(url, {
+      headers: {
+        Authorization: node.password,
+        'User-Id': 'ipod-music-app',
+        'Client-Name': 'iPod-Music-Aggregator/1.0'
+      },
+      rejectUnauthorized: this.rejectUnauthorized
+    });
   }
 
   /**
@@ -141,30 +263,38 @@ class LavalinkService extends EventEmitter {
    * Handle disconnection and attempt reconnect
    */
   handleDisconnect() {
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      this.reconnectAttempts++;
-      console.log(`[Lavalink] Reconnecting (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
-      
-      setTimeout(() => {
-        this.connect().catch(console.error);
-      }, this.reconnectDelay);
-    } else {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error('[Lavalink] Max reconnection attempts reached');
       this.emit('disconnected');
+      return;
     }
+
+    this.reconnectAttempts++;
+    console.log(`[Lavalink] Reconnecting attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}...`);
+
+    setTimeout(async () => {
+      try {
+        await this.connect();
+        this.reconnectAttempts = 0;
+      } catch (error) {
+        console.error('[Lavalink] Reconnect attempt failed:', error.message);
+        this.handleDisconnect();
+      }
+    }, this.reconnectDelay);
   }
 
   /**
    * Load tracks from Lavalink
    */
   async loadTracks(identifier) {
-    const protocol = this.config.secure ? 'https' : 'http';
-    const url = `${protocol}://${this.config.host}:${this.config.port}/v4/loadtracks?identifier=${encodeURIComponent(identifier)}`;
+    const node = this.currentNode || await this.pickNextNode();
+    const protocol = node.secure ? 'https' : 'http';
+    const url = `${protocol}://${node.host}:${node.port}/v4/loadtracks?identifier=${encodeURIComponent(identifier)}`;
     
     try {
       const response = await fetch(url, {
         headers: {
-          'Authorization': this.config.password,
+          Authorization: node.password,
         },
       });
 
