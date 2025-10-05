@@ -15,6 +15,23 @@ function PlaylistDetailsView() {
   const { currentView } = useNavigationStore()
   const { playTrack, addToQueue, currentTrack } = usePlayerStore()
 
+  // Memoize the displayed tracks to avoid re-rendering - MUST be before any conditional returns
+  const displayedTracks = useMemo(() => {
+    return tracks.slice(0, displayLimit)
+  }, [tracks, displayLimit])
+
+  // Format tracks for ListView (only the ones we're displaying) - MUST be before any conditional returns
+  const formattedTracks = useMemo(() => {
+    return displayedTracks.map(track => ({
+      ...track,
+      title: track.title || 'Unknown Title',
+      subtitle: track.artist || 'Unknown Artist',
+      isPlaying: currentTrack?.videoId === track.videoId,
+    }))
+  }, [displayedTracks, currentTrack])
+
+  const hasMore = displayLimit < tracks.length
+
   // Extract playlist data from navigation state (we'll pass it via state)
   useEffect(() => {
     // For now, we'll get the playlist data from a global state or localStorage
@@ -93,11 +110,6 @@ function PlaylistDetailsView() {
     })
   }
 
-  // Memoize the displayed tracks to avoid re-rendering
-  const displayedTracks = useMemo(() => {
-    return tracks.slice(0, displayLimit)
-  }, [tracks, displayLimit])
-
   // Show loading state
   if (isLoading) {
     return (
@@ -132,18 +144,6 @@ function PlaylistDetailsView() {
       </div>
     )
   }
-
-  // Format tracks for ListView (only the ones we're displaying)
-  const formattedTracks = useMemo(() => {
-    return displayedTracks.map(track => ({
-      ...track,
-      title: track.title || 'Unknown Title',
-      subtitle: track.artist || 'Unknown Artist',
-      isPlaying: currentTrack?.videoId === track.videoId,
-    }))
-  }, [displayedTracks, currentTrack])
-
-  const hasMore = displayLimit < tracks.length
 
   return (
     <div className="playlist-details-view view-wrapper">

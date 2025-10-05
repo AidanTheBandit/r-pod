@@ -96,31 +96,42 @@ const initializeClient = () => {
         }))
       }
       if (response.data && Array.isArray(response.data.results)) {
-        response.data.results = response.data.results.map(result => {
-          let fullStreamUrl = result.streamUrl
-          
-          // Convert to full URL if relative
-          if (fullStreamUrl?.startsWith('/api/')) {
-            fullStreamUrl = `${BACKEND_URL}${fullStreamUrl}`
-          }
-          
-          // Add password as query param for audio element authentication
-          if (fullStreamUrl) {
-            try {
-              const url = new URL(fullStreamUrl)
-              url.searchParams.set('password', BACKEND_PASSWORD)
-              fullStreamUrl = url.toString()
-            } catch (e) {
-              console.error('[BackendClient] Failed to parse search result URL:', fullStreamUrl, e)
+        response.data.results = response.data.results
+          .filter(result => {
+            // Filter out results without essential data
+            // For songs: must have title and videoId
+            // For albums/artists/playlists: must have title/name
+            if (result.type === 'song') {
+              return result.title && (result.videoId || result.streamUrl)
             }
-          }
-          
-          console.log('[BackendClient] Search Result:', result.title, 'Stream URL:', fullStreamUrl)
-          return {
-            ...result,
-            streamUrl: fullStreamUrl
-          }
-        })
+            // For non-song types, just check if they have a title or name
+            return result.title || result.name
+          })
+          .map(result => {
+            let fullStreamUrl = result.streamUrl
+            
+            // Convert to full URL if relative
+            if (fullStreamUrl?.startsWith('/api/')) {
+              fullStreamUrl = `${BACKEND_URL}${fullStreamUrl}`
+            }
+            
+            // Add password as query param for audio element authentication
+            if (fullStreamUrl) {
+              try {
+                const url = new URL(fullStreamUrl)
+                url.searchParams.set('password', BACKEND_PASSWORD)
+                fullStreamUrl = url.toString()
+              } catch (e) {
+                console.error('[BackendClient] Failed to parse search result URL:', fullStreamUrl, e)
+              }
+            }
+            
+            console.log('[BackendClient] Search Result:', result.title || result.name, 'Type:', result.type, 'Stream URL:', fullStreamUrl)
+            return {
+              ...result,
+              streamUrl: fullStreamUrl
+            }
+          })
       }
       if (response.data && Array.isArray(response.data.recommendations)) {
         response.data.recommendations = response.data.recommendations.map(rec => {
