@@ -101,14 +101,16 @@
 /* Album Artwork */
 .album-artwork {
   position: absolute;
-  width: 67vw;
-  height: 67vw;
+  width: 92%;
+  height: 92%;
   border-radius: 4vw;
   overflow: hidden;
   box-shadow: 0 2vw 6vw rgba(0, 0, 0, 0.2);
   transform: translateZ(0);
   z-index: 1;
   background: #000;
+  top: 4%;
+  left: 4%;
 }
 
 .album-image {
