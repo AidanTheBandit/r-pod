@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    container_name: ipod-music-backend-python
+    ports:
+      - "3001:3001"
+    environment:
+      - SERVER_PASSWORD=${SERVER_PASSWORD:-change-me-in-production}
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
+      - YOUTUBE_MUSIC_COOKIE=${YOUTUBE_MUSIC_COOKIE}
+      - YOUTUBE_MUSIC_PROFILE=${YOUTUBE_MUSIC_PROFILE:-0}
+      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
+      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
+      - CORS_ORIGINS=["http://localhost:3000", "http://localhost:5173"]
+      - CACHE_TTL=${CACHE_TTL:-600}
+      - DEBUG=${DEBUG:-false}
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:3001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
