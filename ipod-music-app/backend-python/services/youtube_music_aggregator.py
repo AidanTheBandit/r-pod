@@ -29,32 +29,32 @@ class YouTubeMusicAggregator(BaseMusicService):
     async def authenticate(self) -> bool:
         """Authenticate with YouTube Music"""
         try:
-            logger.info(f"[YTM] Authenticating with profile {self.profile}")
+            logger.info(f"[YTM] Authenticating with cookie")
             
             if not self.cookie:
                 logger.error("[YTM] No cookie provided")
                 return False
             
-            # Initialize YTMusic with authentication
-            headers_auth = {
-                "Cookie": self.cookie
-            }
+            # Initialize YTMusic with cookie string directly
+            # ytmusicapi expects cookie string in requests format
+            self.ytm = YTMusic()
+            self.ytm.headers["Cookie"] = self.cookie
             
-            # Create YTMusic instance with auth
-            self.ytm = YTMusic(auth=headers_auth)
-            
-            # Test the authentication by getting account info
+            # Test the authentication by getting home feed
             try:
-                # Try to get library to verify auth
-                await self._run_sync(self.ytm.get_library_playlists, limit=1)
-                self.is_authenticated = True
-                logger.info("[YTM] ✓ Authentication successful")
-                return True
+                test_home = await self._run_sync(self.ytm.get_home, limit=1)
+                if test_home:
+                    self.is_authenticated = True
+                    logger.info("[YTM] ✓ Authentication successful")
+                    return True
+                else:
+                    logger.error("[YTM] Authentication test returned empty")
+                    self.is_authenticated = False
+                    return False
             except Exception as test_error:
                 logger.error(f"[YTM] Authentication test failed: {test_error}")
-                # Still mark as authenticated - may work for other features
-                self.is_authenticated = True
-                return True
+                self.is_authenticated = False
+                return False
                 
         except Exception as e:
             logger.error(f"[YTM] Authentication failed: {e}")
@@ -69,47 +69,74 @@ class YouTubeMusicAggregator(BaseMusicService):
         )
     
     async def get_tracks(self) -> List[Dict[str, Any]]:
-        """Get user's tracks from library and recommendations"""
+        """Get user's tracks - prioritizes Quick Picks and Listen Again from home"""
         if not self.is_authenticated:
             await self.authenticate()
         
         tracks = []
         
         try:
-            logger.info("[YTM] Fetching user tracks from library")
+            logger.info("[YTM] Fetching recommended tracks from home")
             
-            # Get library songs
+            # Get home feed for Quick Picks, Listen Again, etc.
             try:
-                library_songs = await self._run_sync(
-                    self.ytm.get_library_songs,
-                    limit=100
-                )
+                home = await self._run_sync(self.ytm.get_home)
                 
-                if library_songs:
-                    for song in library_songs:
-                        track = self._map_ytm_track(song)
-                        if track:
-                            tracks.append(track)
-                    logger.info(f"[YTM] Got {len(library_songs)} library songs")
-            except Exception as e:
-                logger.warning(f"[YTM] Failed to get library songs: {e}")
-            
-            # Get home recommendations if library is empty or small
-            if len(tracks) < 20:
-                try:
-                    home = await self._run_sync(self.ytm.get_home, limit=5)
+                if home:
+                    # Priority sections to extract tracks from
+                    priority_sections = [
+                        "quick pick", "listen again", "mixed for you",
+                        "recommended", "for you", "your mix"
+                    ]
                     
+                    # First, get tracks from priority sections
                     for section in home:
-                        if section.get("contents"):
-                            for item in section["contents"][:10]:
+                        title = (section.get("title") or "").lower()
+                        section_name = section.get("title", "Recommendations")
+                        
+                        # Check if this is a priority section
+                        is_priority = any(p in title for p in priority_sections)
+                        
+                        if is_priority and section.get("contents"):
+                            logger.info(f"[YTM] Extracting from section: {section_name}")
+                            
+                            for item in section["contents"]:
                                 if item.get("videoId"):
                                     track = self._map_ytm_track(item)
                                     if track:
+                                        track["section"] = section_name
                                         tracks.append(track)
+                                        
+                                        # Stop if we have enough tracks
+                                        if len(tracks) >= 50:
+                                            break
+                            
+                            if len(tracks) >= 50:
+                                break
                     
-                    logger.info(f"[YTM] Added recommendations, total: {len(tracks)}")
+                    logger.info(f"[YTM] Got {len(tracks)} tracks from home sections")
+                    
+            except Exception as e:
+                logger.warning(f"[YTM] Failed to get home recommendations: {e}")
+            
+            # If still not enough tracks, try library songs
+            if len(tracks) < 20:
+                try:
+                    logger.info("[YTM] Fetching library songs as fallback")
+                    library_songs = await self._run_sync(
+                        self.ytm.get_library_songs,
+                        limit=50
+                    )
+                    
+                    if library_songs:
+                        for song in library_songs:
+                            track = self._map_ytm_track(song)
+                            if track:
+                                track["section"] = "Library"
+                                tracks.append(track)
+                        logger.info(f"[YTM] Added {len(library_songs)} library songs")
                 except Exception as e:
-                    logger.warning(f"[YTM] Failed to get home recommendations: {e}")
+                    logger.warning(f"[YTM] Failed to get library songs: {e}")
             
         except Exception as e:
             logger.error(f"[YTM] Error getting tracks: {e}")
@@ -117,34 +144,42 @@ class YouTubeMusicAggregator(BaseMusicService):
         return tracks[:100]  # Limit to 100 tracks
     
     async def get_albums(self, album_type: str = "user") -> List[Dict[str, Any]]:
-        """Get albums"""
+        """Get albums - defaults to recommended from home page"""
         if not self.is_authenticated:
             await self.authenticate()
         
         albums = []
         
         try:
-            if album_type == "popular":
+            # Always get recommendations from home page for better results
+            logger.info("[YTM] Fetching recommended albums from home")
+            home = await self._run_sync(self.ytm.get_home, limit=10)
+            
+            if home:
+                for section in home:
+                    if section.get("contents"):
+                        for item in section["contents"]:
+                            # Check if it's an album
+                            if item.get("browseId") and (item.get("browseId", "").startswith("MPREb_") or "album" in str(item.get("resultType", "")).lower()):
+                                mapped = self._map_ytm_album(item)
+                                if mapped:
+                                    albums.append(mapped)
+                                    if len(albums) >= 20:
+                                        break
+                    if len(albums) >= 20:
+                        break
+            
+            # If no albums from home, search for popular
+            if len(albums) < 5:
                 logger.info("[YTM] Searching for popular albums")
                 results = await self._run_sync(
                     self.ytm.search,
-                    "popular albums 2025",
+                    "popular music",
                     filter="albums",
                     limit=20
                 )
                 
                 for album in results:
-                    mapped = self._map_ytm_album(album)
-                    if mapped:
-                        albums.append(mapped)
-            else:
-                logger.info("[YTM] Fetching user library albums")
-                library_albums = await self._run_sync(
-                    self.ytm.get_library_albums,
-                    limit=50
-                )
-                
-                for album in library_albums:
                     mapped = self._map_ytm_album(album)
                     if mapped:
                         albums.append(mapped)
@@ -170,10 +205,13 @@ class YouTubeMusicAggregator(BaseMusicService):
                 limit=50
             )
             
-            for playlist in library_playlists:
-                mapped = self._map_ytm_playlist(playlist)
-                if mapped:
-                    playlists.append(mapped)
+            if library_playlists:
+                for playlist in library_playlists:
+                    mapped = self._map_ytm_playlist(playlist)
+                    if mapped:
+                        playlists.append(mapped)
+            else:
+                logger.warning("[YTM] No library playlists returned")
             
             logger.info(f"[YTM] ✓ Returning {len(playlists)} playlists")
             
@@ -183,42 +221,29 @@ class YouTubeMusicAggregator(BaseMusicService):
         return playlists
     
     async def get_artists(self, artist_type: str = "user") -> List[Dict[str, Any]]:
-        """Get artists"""
+        """Get artists - defaults to recommended"""
         if not self.is_authenticated:
             await self.authenticate()
         
         artists = []
         
         try:
-            if artist_type == "popular":
-                logger.info("[YTM] Searching for popular artists")
-                results = await self._run_sync(
-                    self.ytm.search,
-                    "popular artists",
-                    filter="artists",
-                    limit=20
-                )
-                
+            # Always get recommendations from home/search
+            logger.info("[YTM] Searching for recommended artists")
+            results = await self._run_sync(
+                self.ytm.search,
+                "popular artists music",
+                filter="artists",
+                limit=20
+            )
+            
+            if results:
                 for artist in results:
                     mapped = self._map_ytm_artist(artist)
                     if mapped:
                         artists.append(mapped)
             else:
-                logger.info("[YTM] Fetching subscribed artists")
-                try:
-                    library_artists = await self._run_sync(
-                        self.ytm.get_library_artists,
-                        limit=50
-                    )
-                    
-                    for artist in library_artists:
-                        mapped = self._map_ytm_artist(artist)
-                        if mapped:
-                            artists.append(mapped)
-                except Exception as e:
-                    logger.warning(f"[YTM] Library artists failed: {e}, falling back to search")
-                    # Fallback to popular if library fails
-                    return await self.get_artists("popular")
+                logger.warning("[YTM] No artists found in search")
             
             logger.info(f"[YTM] ✓ Returning {len(artists)} artists")
             
@@ -287,7 +312,7 @@ class YouTubeMusicAggregator(BaseMusicService):
         return results
     
     async def get_recommendations(self) -> List[Dict[str, Any]]:
-        """Get personalized recommendations"""
+        """Get personalized recommendations from all home sections"""
         if not self.is_authenticated:
             await self.authenticate()
         
@@ -295,16 +320,19 @@ class YouTubeMusicAggregator(BaseMusicService):
         
         try:
             logger.info("[YTM] Getting recommendations from home")
-            home = await self._run_sync(self.ytm.get_home, limit=10)
+            home = await self._run_sync(self.ytm.get_home)
             
-            for section in home:
-                if section.get("contents"):
-                    for item in section["contents"][:5]:
-                        if item.get("videoId"):
-                            track = self._map_ytm_track(item)
-                            if track:
-                                track["section"] = section.get("title", "Recommendations")
-                                recommendations.append(track)
+            if home:
+                for section in home:
+                    section_title = section.get("title", "Recommendations")
+                    if section.get("contents"):
+                        logger.info(f"[YTM] Processing section: {section_title}")
+                        for item in section["contents"][:5]:
+                            if item.get("videoId"):
+                                track = self._map_ytm_track(item)
+                                if track:
+                                    track["section"] = section_title
+                                    recommendations.append(track)
             
             logger.info(f"[YTM] ✓ Got {len(recommendations)} recommendations")
             
@@ -312,6 +340,60 @@ class YouTubeMusicAggregator(BaseMusicService):
             logger.error(f"[YTM] Error getting recommendations: {e}")
         
         return recommendations
+    
+    async def get_home_section(self, section_name: str) -> List[Dict[str, Any]]:
+        """
+        Get a specific named recommendations section from YouTube Music home
+        
+        Args:
+            section_name: Section to find (e.g., 'Quick Picks', 'Listen again', 'Mixed for you')
+            
+        Returns:
+            List of tracks from that section
+        """
+        if not self.is_authenticated:
+            await self.authenticate()
+        
+        tracks = []
+        
+        try:
+            logger.info(f"[YTM] Getting home section: {section_name}")
+            home = await self._run_sync(self.ytm.get_home)
+            
+            if not home:
+                logger.warning("[YTM] Home feed returned empty")
+                return []
+            
+            # Search for matching section (case-insensitive)
+            section_name_lower = section_name.lower()
+            
+            for section in home:
+                title = (section.get("title") or "").lower()
+                
+                # Match section name
+                if section_name_lower in title:
+                    logger.info(f"[YTM] Found section: {section.get('title')}")
+                    
+                    for item in section.get("contents", []):
+                        if item.get("videoId"):
+                            track = self._map_ytm_track(item)
+                            if track:
+                                track["section"] = section.get("title", section_name)
+                                tracks.append(track)
+                    
+                    logger.info(f"[YTM] ✓ Got {len(tracks)} tracks from '{section.get('title')}'")
+                    break
+            
+            if not tracks:
+                logger.warning(f"[YTM] Section '{section_name}' not found in home feed")
+                # List available sections for debugging
+                available_sections = [s.get("title") for s in home if s.get("title")]
+                logger.info(f"[YTM] Available sections: {', '.join(available_sections)}")
+            
+        except Exception as e:
+            logger.error(f"[YTM] Error getting home section '{section_name}': {e}")
+        
+        return tracks
     
     async def get_radio(self, video_id: str) -> List[Dict[str, Any]]:
         """Get radio/autoplay tracks based on a seed song"""

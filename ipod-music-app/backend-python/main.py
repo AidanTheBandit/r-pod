@@ -266,10 +266,28 @@ async def connect_service(
 @app.get("/api/tracks")
 async def get_tracks(
     sessionId: str = Query(...),
+    section: Optional[str] = Query(None),
     authenticated: bool = Depends(verify_password)
 ):
-    """Get tracks from all services"""
+    """
+    Get tracks from all services
+    
+    Query params:
+        - section: Optional section name for YTM (e.g., 'Quick Picks', 'Listen again')
+    """
     session = get_session(sessionId)
+    
+    # If specific section requested from YouTube Music
+    if section:
+        ytm_service = session["services"].get("youtubeMusic")
+        if ytm_service:
+            logger.info(f"[API] Getting tracks from section: {section}")
+            tracks = await ytm_service.get_home_section(section)
+            return {"tracks": tracks}
+        else:
+            raise HTTPException(404, "YouTube Music not connected")
+    
+    # Otherwise aggregate from all services (uses improved get_tracks with priority sections)
     tracks = await aggregate(session, "get_tracks")
     return {"tracks": tracks}
 
@@ -324,10 +342,28 @@ async def search(
 @app.get("/api/recommendations")
 async def get_recommendations(
     sessionId: str = Query(...),
+    section: Optional[str] = Query(None),
     authenticated: bool = Depends(verify_password)
 ):
-    """Get recommendations from all services"""
+    """
+    Get recommendations from all services
+    
+    Query params:
+        - section: Optional section name (e.g., 'Quick Picks', 'Listen again')
+    """
     session = get_session(sessionId)
+    
+    # If specific section requested, get it from YouTube Music
+    if section:
+        ytm_service = session["services"].get("youtubeMusic")
+        if ytm_service:
+            logger.info(f"[API] Getting home section: {section}")
+            tracks = await ytm_service.get_home_section(section)
+            return {"recommendations": tracks}
+        else:
+            raise HTTPException(404, "YouTube Music not connected")
+    
+    # Otherwise get all recommendations
     recommendations = await aggregate(session, "get_recommendations")
     return {"recommendations": recommendations}
 
@@ -355,7 +391,7 @@ async def stream_youtube(
     password: Optional[str] = Query(None),
     x_server_password: Optional[str] = Header(None)
 ):
-    """Stream YouTube audio"""
+    """Stream YouTube audio - returns redirect to actual stream URL"""
     # Check auth from query or header
     if password != settings.server_password and x_server_password != settings.server_password:
         raise HTTPException(401, "Unauthorized")
@@ -366,25 +402,16 @@ async def stream_youtube(
         stream_info = await audio_streaming_service.get_stream_url(videoId)
         
         if not stream_info or not stream_info.get("url"):
+            logger.error(f"[Stream] No stream URL available for {videoId}")
             raise HTTPException(503, "Stream URL not available")
         
         stream_url = stream_info["url"]
+        logger.info(f"[Stream] ✓ Redirecting to stream URL")
         
-        # Proxy the stream
-        async def stream_generator():
-            async with httpx.AsyncClient() as client:
-                async with client.stream("GET", stream_url) as response:
-                    async for chunk in response.aiter_bytes(chunk_size=8192):
-                        yield chunk
-        
-        return StreamingResponse(
-            stream_generator(),
-            media_type="audio/webm",
-            headers={
-                "Accept-Ranges": "bytes",
-                "Cache-Control": "public, max-age=3600",
-            }
-        )
+        # Redirect to the actual stream URL instead of proxying
+        # This allows the browser to handle range requests and streaming properly
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=stream_url, status_code=307)
         
     except HTTPException:
         raise

@@ -105,8 +105,9 @@ class AudioStreamingService:
                 return None
             
             # Sort by quality (prefer higher bitrate)
+            # Handle None values in bitrate comparison
             audio_formats.sort(
-                key=lambda x: x.get("abr", 0) or x.get("tbr", 0),
+                key=lambda x: (x.get("abr") or x.get("tbr") or 0),
                 reverse=True
             )
             
