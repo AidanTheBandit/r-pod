@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigationStore } from '../store/navigationStore'
 import { usePlayerStore } from '../store/playerStore'
 import { backendAPI } from '../services/backendClient'
@@ -8,6 +8,7 @@ import './PlaylistDetailsView.css'
 function PlaylistDetailsView() {
   const [playlist, setPlaylist] = useState(null)
   const [tracks, setTracks] = useState([])
+  const [displayLimit, setDisplayLimit] = useState(50) // Start by showing 50 tracks
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -84,6 +85,19 @@ function PlaylistDetailsView() {
     }
   }
 
+  const handleLoadMore = () => {
+    // Load 50 more tracks when scrolling to bottom
+    return new Promise((resolve) => {
+      setDisplayLimit(prev => Math.min(prev + 50, tracks.length))
+      resolve()
+    })
+  }
+
+  // Memoize the displayed tracks to avoid re-rendering
+  const displayedTracks = useMemo(() => {
+    return tracks.slice(0, displayLimit)
+  }, [tracks, displayLimit])
+
   // Show loading state
   if (isLoading) {
     return (
@@ -119,20 +133,28 @@ function PlaylistDetailsView() {
     )
   }
 
-  // Format tracks for ListView
-  const formattedTracks = tracks.map(track => ({
-    ...track,
-    title: track.title || 'Unknown Title',
-    subtitle: track.artist || 'Unknown Artist',
-    isPlaying: currentTrack?.videoId === track.videoId,
-  }))
+  // Format tracks for ListView (only the ones we're displaying)
+  const formattedTracks = useMemo(() => {
+    return displayedTracks.map(track => ({
+      ...track,
+      title: track.title || 'Unknown Title',
+      subtitle: track.artist || 'Unknown Artist',
+      isPlaying: currentTrack?.videoId === track.videoId,
+    }))
+  }, [displayedTracks, currentTrack])
+
+  const hasMore = displayLimit < tracks.length
 
   return (
     <div className="playlist-details-view view-wrapper">
       <div className="view-header">
         <h2>{playlist.title}</h2>
         <div className="playlist-info">
-          {playlist.trackCount && <span>{playlist.trackCount} songs</span>}
+          {tracks.length > 0 && (
+            <span>
+              Showing {displayedTracks.length} of {tracks.length} songs
+            </span>
+          )}
           {playlist.description && <p>{playlist.description}</p>}
         </div>
       </div>
@@ -146,7 +168,13 @@ function PlaylistDetailsView() {
       )}
 
       {formattedTracks.length > 0 ? (
-        <ListView items={formattedTracks} onItemClick={handleTrackClick} />
+        <ListView 
+          items={formattedTracks} 
+          onItemClick={handleTrackClick}
+          onLoadMore={handleLoadMore}
+          hasMore={hasMore}
+          loading={false}
+        />
       ) : (
         <div className="empty-container">
           <div className="empty-text">No tracks in this playlist</div>
