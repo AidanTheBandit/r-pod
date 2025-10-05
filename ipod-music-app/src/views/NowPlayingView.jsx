@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { usePlayerStore } from '../store/playerStore'
 import './NowPlayingView.css'
 
@@ -22,6 +22,9 @@ function NowPlayingView() {
     repeat,
   } = usePlayerStore()
   
+  const frameRef = useRef(null)
+  const artworkRef = useRef(null)
+  
   // Format time helper (mm:ss)
   const formatTime = (seconds) => {
     if (!seconds || isNaN(seconds)) return '0:00'
@@ -32,6 +35,32 @@ function NowPlayingView() {
   
   // Calculate remaining time
   const remainingTime = duration - currentTime
+  
+  // Fit album art to progress border
+  useEffect(() => {
+    if (frameRef.current && artworkRef.current) {
+      const frame = frameRef.current
+      const artwork = artworkRef.current
+      
+      // SVG border dimensions: x=3, y=3, width=94, height=94, strokeWidth=3
+      // Inner area accounts for stroke: starts at 4.5%, size is 91%
+      const borderStart = 0.045 // 4.5%
+      const borderSize = 0.91 // 91%
+      
+      const frameWidth = frame.offsetWidth
+      const frameHeight = frame.offsetHeight
+      
+      const artworkWidth = frameWidth * borderSize
+      const artworkHeight = frameHeight * borderSize
+      const artworkLeft = frameWidth * borderStart
+      const artworkTop = frameHeight * borderStart
+      
+      artwork.style.width = `${artworkWidth}px`
+      artwork.style.height = `${artworkHeight}px`
+      artwork.style.left = `${artworkLeft}px`
+      artwork.style.top = `${artworkTop}px`
+    }
+  }, [currentTrack])
   
   // Empty state when no track is loaded
   if (!currentTrack) {
@@ -54,7 +83,7 @@ function NowPlayingView() {
         
         {/* Album Artwork with Square Border Progress Bar */}
         <div className="album-artwork-wrapper">
-          <div className="album-artwork-frame">
+          <div className="album-artwork-frame" ref={frameRef}>
             {/* Progress border - single line moving around square */}
             <svg className="progress-border-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
               {/* Background border */}
@@ -88,7 +117,7 @@ function NowPlayingView() {
             </svg>
             
             {/* Album Art */}
-            <div className="album-artwork">
+            <div className="album-artwork" ref={artworkRef}>
               {currentTrack.albumArt ? (
                 <img 
                   src={currentTrack.albumArt} 
