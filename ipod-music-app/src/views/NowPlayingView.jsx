@@ -56,32 +56,34 @@ function NowPlayingView() {
         <div className="album-artwork-wrapper">
           <div className="album-artwork-frame">
             {/* Progress border - single line moving around square */}
-            <svg className="progress-border-svg" viewBox="0 0 100 100">
+            <svg className="progress-border-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
               {/* Background border */}
               <rect
-                x="2"
-                y="2"
-                width="96"
-                height="96"
+                x="3"
+                y="3"
+                width="94"
+                height="94"
                 fill="none"
                 stroke="#e0e0e0"
-                strokeWidth="2"
-                rx="3"
+                strokeWidth="3"
+                rx="8"
+                ry="8"
               />
-              {/* Progress border - starts from bottom center */}
+              {/* Progress border - starts from bottom center, moves clockwise */}
               <rect
-                x="2"
-                y="2"
-                width="96"
-                height="96"
+                x="3"
+                y="3"
+                width="94"
+                height="94"
                 fill="none"
                 stroke="#2196F3"
-                strokeWidth="2"
-                strokeDasharray="380"
-                strokeDashoffset={380 - (380 * progressPercentage / 100)}
-                rx="3"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeDasharray="372"
+                strokeDashoffset={372 - (372 * progressPercentage / 100)}
+                rx="8"
+                ry="8"
                 className="progress-border-path"
-                transform="rotate(90 50 50)"
               />
             </svg>
             
