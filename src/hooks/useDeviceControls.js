@@ -40,6 +40,10 @@ export function useDeviceControls(sdk) {
     let scrollHoldTimer = null
     let isSeekMode = false
     
+    // Debounce for list navigation
+    let scrollDebounceTimer = null
+    const SCROLL_DEBOUNCE_MS = 150 // Prevent rapid scrolling
+    
     // Handle scroll wheel events
     const handleScrollWheel = (data) => {
       // Special handling for Now Playing view
@@ -87,19 +91,25 @@ export function useDeviceControls(sdk) {
         return
       }
       
-      // For list views, move selection
-      const viewContainer = document.querySelector('.view-container')
-      if (!viewContainer) return
-      
-      const listItems = viewContainer.querySelectorAll('.list-item')
-      
-      if (listItems.length > 0) {
-        if (data.direction === 'up') {
-          moveSelectionUp(listItems.length)
-        } else {
-          moveSelectionDown(listItems.length)
-        }
+      // For list views, move selection with debouncing
+      if (scrollDebounceTimer) {
+        clearTimeout(scrollDebounceTimer)
       }
+      
+      scrollDebounceTimer = setTimeout(() => {
+        const viewContainer = document.querySelector('.view-container')
+        if (!viewContainer) return
+        
+        const listItems = viewContainer.querySelectorAll('.list-item')
+        
+        if (listItems.length > 0) {
+          if (data.direction === 'up') {
+            moveSelectionUp(listItems.length)
+          } else {
+            moveSelectionDown(listItems.length)
+          }
+        }
+      }, SCROLL_DEBOUNCE_MS)
     }
     
     // Handle PTT (side button) press
@@ -132,6 +142,10 @@ export function useDeviceControls(sdk) {
       
       if (scrollHoldTimer) {
         clearTimeout(scrollHoldTimer)
+      }
+      
+      if (scrollDebounceTimer) {
+        clearTimeout(scrollDebounceTimer)
       }
     }
   }, [

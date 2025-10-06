@@ -38,7 +38,7 @@ html, body {
   position: relative;
   /* Responsive sizing with R1 optimization */
   max-width: min(100vw, 240px);
-  max-height: min(100vh, 282px);
+  max-height: min(100vh, 320px);
   margin: 0 auto;
   /* Hardware acceleration */
   transform: translateZ(0);
@@ -57,14 +57,14 @@ html, body {
 @media (min-width: 241px) {
   #root {
     max-width: min(100vw, 320px);
-    max-height: min(100vh, 376px); /* Maintain ~1.32 aspect ratio */
+    max-height: min(100vh, 400px); /* Maintain ~1.25 aspect ratio for taller display */
   }
 }
 
 @media (min-width: 481px) {
   #root {
     max-width: min(100vw, 400px);
-    max-height: min(100vh, 470px); /* Maintain ~1.32 aspect ratio */
+    max-height: min(100vh, 500px); /* Maintain ~1.25 aspect ratio */
   }
 }
 

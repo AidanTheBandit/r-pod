@@ -5,6 +5,7 @@ import { usePlayerStore } from './store/playerStore'
 import { useServiceStore } from './store/serviceStore'
 import { backendAPI } from './services/backendClient'
 import { useDeviceControls } from './hooks/useDeviceControls'
+import { ui } from 'r1-create'
 import ErrorBoundary from './components/ErrorBoundary'
 import Header from './components/Header'
 import MainMenu from './views/MainMenu'
@@ -181,6 +182,11 @@ function AppContent({ sdk }) {
 
   // Initialize device controls
   useDeviceControls(sdk)
+
+  // Setup viewport for R1 device
+  useEffect(() => {
+    ui.setupViewport()
+  }, [])
 
   // Auto-connect YouTube Music on app startup
   useEffect(() => {
