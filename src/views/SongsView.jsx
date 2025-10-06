@@ -2,6 +2,7 @@ import { useNavigationStore } from '../store/navigationStore'
 import { usePlayerStore } from '../store/playerStore'
 import { useServiceStore } from '../store/serviceStore'
 import { useTracks } from '../hooks/useMusicData'
+import { backendAPI } from '../services/backendClient'
 import ListView from '../components/ListView'
 import './SongsView.css'
 
@@ -18,11 +19,28 @@ function SongsView() {
     subtitle: `${song.artist} • ${song.album}`,
   }))
   
-  const handleSongClick = (song, index) => {
-    console.log('Song clicked:', song.title)
+  const handleSongClick = async (song, index) => {
+    console.log('Song clicked:', song.title, '- Starting radio...')
     
-    // Play the song
-    playTrack(song, formattedSongs, index)
+    try {
+      // Fetch radio tracks for this song
+      const radioTracks = await backendAPI.getRadio(song.videoId)
+      
+      if (radioTracks && radioTracks.length > 0) {
+        console.log(`Got ${radioTracks.length} radio tracks`)
+        
+        // Play the radio starting with the clicked song
+        playTrack(song, radioTracks, 0)
+      } else {
+        console.warn('No radio tracks available, playing single song')
+        // Fallback to playing just this song
+        playTrack(song, [song], 0)
+      }
+    } catch (error) {
+      console.error('Failed to get radio tracks:', error)
+      // Fallback to playing just this song
+      playTrack(song, [song], 0)
+    }
     
     // Navigate to now playing
     navigateTo('nowPlaying', true)

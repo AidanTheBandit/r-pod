@@ -30,6 +30,7 @@ class YouTubeMusicAggregator(BaseMusicService):
         self.profile = credentials.get("profile", "1")
         self.brand_account_id = credentials.get("brand_account_id")
         self.cookie_file = None
+        self.speed_dial_pins: set = set()  # For Speed Dial favorites
         
     def _create_cookie_file(self):
         """Create a temporary cookie file for ytmusicapi"""
@@ -814,6 +815,109 @@ class YouTubeMusicAggregator(BaseMusicService):
             logger.error(f"[YTM] Error getting home section '{section_name}': {e}")
             return []
     
+    async def get_personalized_home_grid(self):
+        """Unified personalized feed combining Listen Again, Quick Picks, and Speed Dial"""
+        if not self.is_authenticated:
+            await self.authenticate()
+        
+        try:
+            logger.info("[YTM] Getting unified personalized home grid")
+            
+            # Get tracks from each section
+            listen_again = await self.get_home_section('listen again')
+            quick_picks = await self.get_home_section('quick picks')
+            speed_dial = await self.get_speed_dial_tracks()
+            
+            # Merge and deduplicate by videoId
+            unique_tracks = {}
+            for section_name, tracks in [("listen again", listen_again), ("quick picks", quick_picks), ("speed dial", speed_dial)]:
+                for track in tracks:
+                    video_id = track.get("videoId")
+                    if video_id:
+                        if video_id not in unique_tracks:
+                            unique_tracks[video_id] = track.copy()
+                        unique_tracks[video_id]["section"] = section_name
+            
+            # Return as a 3x3 grid (27 slots) - limit to 27 tracks
+            grid_tracks = list(unique_tracks.values())[:27]
+            
+            logger.info(f"[YTM] ✓ Created personalized grid with {len(grid_tracks)} tracks")
+            return grid_tracks
+            
+        except Exception as e:
+            logger.error(f"[YTM] Error getting personalized home grid: {e}")
+            return []
+    
+    async def pin_to_speed_dial(self, video_id: str):
+        """Pin a track to Speed Dial favorites"""
+        try:
+            logger.info(f"[YTM] Pinning track {video_id} to Speed Dial")
+            self.speed_dial_pins.add(video_id)
+            await self.save_pins_to_backend()
+            logger.info(f"[YTM] ✓ Pinned track {video_id} to Speed Dial")
+            return True
+        except Exception as e:
+            logger.error(f"[YTM] Error pinning track {video_id}: {e}")
+            return False
+    
+    async def unpin_from_speed_dial(self, video_id: str):
+        """Unpin a track from Speed Dial favorites"""
+        try:
+            logger.info(f"[YTM] Unpinning track {video_id} from Speed Dial")
+            self.speed_dial_pins.discard(video_id)
+            await self.save_pins_to_backend()
+            logger.info(f"[YTM] ✓ Unpinned track {video_id} from Speed Dial")
+            return True
+        except Exception as e:
+            logger.error(f"[YTM] Error unpinning track {video_id}: {e}")
+            return False
+    
+    async def get_speed_dial_tracks(self):
+        """Get pinned tracks for Speed Dial section"""
+        try:
+            logger.info(f"[YTM] Getting {len(self.speed_dial_pins)} Speed Dial tracks")
+            tracks = []
+            for video_id in self.speed_dial_pins:
+                track = await self.get_track_info(video_id)
+                if track:
+                    track["section"] = "Speed Dial"
+                    tracks.append(track)
+            
+            logger.info(f"[YTM] ✓ Retrieved {len(tracks)} Speed Dial tracks")
+            return tracks
+        except Exception as e:
+            logger.error(f"[YTM] Error getting Speed Dial tracks: {e}")
+            return []
+    
+    async def get_track_info(self, video_id: str):
+        """Get track info by video ID"""
+        try:
+            # This is a simplified implementation - in practice you'd want to cache or use YTM API
+            # For now, return a basic track structure
+            return {
+                "id": f"ytm:{video_id}",
+                "title": "Unknown Title",  # Would need to fetch actual title
+                "artist": "Unknown Artist",
+                "album": "Unknown Album",
+                "albumArt": None,
+                "streamUrl": f"/api/stream/youtube/{video_id}",
+                "service": "youtubeMusic",
+                "videoId": video_id
+            }
+        except Exception as e:
+            logger.error(f"[YTM] Error getting track info for {video_id}: {e}")
+            return None
+    
+    async def save_pins_to_backend(self):
+        """Save Speed Dial pins to persistent storage"""
+        try:
+            # For now, just log - in a real implementation you'd save to a database/file
+            logger.info(f"[YTM] Saving {len(self.speed_dial_pins)} Speed Dial pins")
+            # TODO: Implement actual persistence
+            pass
+        except Exception as e:
+            logger.error(f"[YTM] Error saving Speed Dial pins: {e}")
+    
     async def get_albums(self, album_type: str = "user", offset: int = 0, limit: int = 50) -> List[Dict[str, Any]]:
         """Get albums with pagination support"""
         if not self.is_authenticated:
@@ -1301,6 +1405,65 @@ class YouTubeMusicAggregator(BaseMusicService):
         
         return radio_tracks
     
+    async def start_radio_from_song(self, song_id: str, limit: int = 20):
+        """Start radio from one song (standard YTM behavior)"""
+        if not self.is_authenticated:
+            await self.authenticate()
+        
+        try:
+            logger.info(f"[YTM] Starting radio from song: {song_id}")
+            radio = await self._run_sync(self.ytm.get_watch_playlist, videoId=song_id, limit=limit)
+            
+            if radio and "tracks" in radio:
+                tracks = []
+                for track in radio["tracks"]:
+                    mapped = self._map_ytm_track(track)
+                    if mapped:
+                        mapped["section"] = "Radio"
+                        tracks.append(mapped)
+                
+                logger.info(f"[YTM] ✓ Started radio with {len(tracks)} tracks")
+                return tracks
+            
+            logger.warning("[YTM] No radio tracks returned")
+            return []
+            
+        except Exception as e:
+            logger.error(f"[YTM] Error starting radio from song {song_id}: {e}")
+            return []
+    
+    async def start_radio_from_songs(self, song_ids: List[str], limit: int = 50):
+        """Start radio from multiple songs (Quick Picks-style)"""
+        if not self.is_authenticated:
+            await self.authenticate()
+        
+        try:
+            logger.info(f"[YTM] Starting radio from {len(song_ids)} songs")
+            
+            all_tracks = []
+            for song_id in song_ids:
+                radio = await self._run_sync(self.ytm.get_watch_playlist, videoId=song_id, limit=min(limit, 20))
+                if radio and "tracks" in radio:
+                    all_tracks.extend(radio["tracks"])
+            
+            # Deduplicate by videoId
+            deduped = {track["videoId"]: track for track in all_tracks if track.get("videoId")}.values()
+            
+            # Map to standard format
+            tracks = []
+            for track in list(deduped)[:limit]:
+                mapped = self._map_ytm_track(track)
+                if mapped:
+                    mapped["section"] = "Multi-Song Radio"
+                    tracks.append(mapped)
+            
+            logger.info(f"[YTM] ✓ Started multi-song radio with {len(tracks)} tracks")
+            return tracks
+            
+        except Exception as e:
+            logger.error(f"[YTM] Error starting radio from songs {song_ids}: {e}")
+            return []
+    
     async def get_artist_albums(self, artist_id: str) -> List[Dict[str, Any]]:
         """Get albums for a specific artist"""
         if not self.is_authenticated:
@@ -1578,39 +1741,3 @@ class YouTubeMusicAggregator(BaseMusicService):
                 "description": playlist.get("description", ""),
                 "trackCount": track_count,
                 "coverArt": thumbnail,
-                "service": "youtubeMusic"
-            }
-        except Exception as e:
-            logger.error(f"[YTM] Error mapping playlist: {e}")
-            return None
-    
-    def _map_ytm_artist(self, artist: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Map YouTube Music artist to standard format"""
-        try:
-            browse_id = artist.get("browseId") or artist.get("artistId")
-            if not browse_id:
-                return None
-            
-            # Get thumbnail
-            thumbnail = None
-            if artist.get("thumbnails") and len(artist["thumbnails"]) > 0:
-                thumbnail = self._get_best_thumbnail(artist["thumbnails"])
-            
-            return {
-                "id": f"ytm:{browse_id}",
-                "name": artist.get("artist") or artist.get("name", "Unknown Artist"),
-                "image": thumbnail,
-                "service": "youtubeMusic"
-            }
-        except Exception as e:
-            logger.error(f"[YTM] Error mapping artist: {e}")
-            return None
-    
-    def __del__(self):
-        """Cleanup cookie file on deletion"""
-        if self.cookie_file and os.path.exists(self.cookie_file.name):
-            try:
-                os.unlink(self.cookie_file.name)
-                logger.info(f"[YTM] Cleaned up cookie file")
-            except Exception as e:
-                logger.error(f"[YTM] Failed to cleanup cookie file: {e}")

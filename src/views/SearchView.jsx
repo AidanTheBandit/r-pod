@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigationStore } from '../store/navigationStore'
 import { usePlayerStore } from '../store/playerStore'
 import { useSearch } from '../hooks/useMusicData'
+import { backendAPI } from '../services/backendClient'
 import ListView from '../components/ListView'
 import './SearchView.css'
 
@@ -34,12 +35,31 @@ function SearchView() {
     setSearchQuery(query)
   }
   
-  const handleResultClick = (result, index) => {
+  const handleResultClick = async (result, index) => {
     console.log('Search result clicked:', result.title, result.type)
     
     if (result.type === 'song') {
-      // Play the track
-      playTrack(result, formattedResults.filter(r => r.type === 'song'), index)
+      try {
+        // Fetch radio tracks for this song
+        const radioTracks = await backendAPI.getRadio(result.videoId)
+        
+        if (radioTracks && radioTracks.length > 0) {
+          console.log(`Got ${radioTracks.length} radio tracks`)
+          
+          // Play the radio starting with the clicked song
+          playTrack(result, radioTracks, 0)
+        } else {
+          console.warn('No radio tracks available, playing single song')
+          // Fallback to playing just this song
+          const songResults = formattedResults.filter(r => r.type === 'song')
+          playTrack(result, songResults, index)
+        }
+      } catch (error) {
+        console.error('Failed to get radio tracks:', error)
+        // Fallback to playing just this song
+        const songResults = formattedResults.filter(r => r.type === 'song')
+        playTrack(result, songResults, index)
+      }
       
       // Navigate to now playing
       navigateTo('nowPlaying', true)

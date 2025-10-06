@@ -502,7 +502,7 @@ async def get_radio(
     if not ytm_service:
         raise HTTPException(404, "YouTube Music not connected")
     
-    tracks = await ytm_service.get_radio(videoId)
+    tracks = await ytm_service.start_radio_from_song(videoId)
     return {"tracks": tracks}
 
 

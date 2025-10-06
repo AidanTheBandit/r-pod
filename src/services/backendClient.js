@@ -289,7 +289,13 @@ export const backendAPI = {
   async healthCheck() {
     const response = await client.get('/health')
     return response.data
-  }
+  },
+
+  // Get radio tracks for a video ID
+  async getRadio(videoId) {
+    const response = await client.get(`/api/radio/${videoId}`)
+    return response.data.tracks || []
+  },
 }
 
 export default backendAPI
