@@ -253,10 +253,18 @@
    THEME OVERRIDES
    =========================== */
 
+/* iPod Theme */
+body.ipod .now-playing-view {
+  --progress-color: #2196F3;
+  --progress-bg-color: #e0e0e0;
+}
+
 /* Rabbit Theme Overrides */
 body.rabbit .now-playing-view,
 body.rabbit .now-playing-container {
   background: #000;
+  --progress-color: #FF4D08;
+  --progress-bg-color: #666;
 }
 
 body.rabbit .now-playing-empty {

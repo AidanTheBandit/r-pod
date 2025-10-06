@@ -22,6 +22,14 @@ function NowPlayingView() {
   
   const frameRef = useRef(null)
   const artworkRef = useRef(null)
+  const containerRef = useRef(null)
+  
+  // Scroll to top when view loads
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollTop = 0
+    }
+  }, [])
   
   // Fit album art to progress border
   useEffect(() => {
@@ -72,7 +80,7 @@ function NowPlayingView() {
 
   return (
     <div className="now-playing-view view-wrapper">
-      <div className="now-playing-container">
+      <div className="now-playing-container" ref={containerRef}>
         
         {/* Album Artwork with Square Border Progress Bar */}
         <div className="album-artwork-wrapper">
@@ -86,7 +94,7 @@ function NowPlayingView() {
                 width="94"
                 height="94"
                 fill="none"
-                stroke="#e0e0e0"
+                stroke="var(--progress-bg-color, #e0e0e0)"
                 strokeWidth="3"
                 rx="8"
                 ry="8"
@@ -95,7 +103,7 @@ function NowPlayingView() {
               <path
                 d="M 50 97 L 89 97 A 8 8 0 0 0 97 89 L 97 11 A 8 8 0 0 0 89 3 L 11 3 A 8 8 0 0 0 3 11 L 3 89 A 8 8 0 0 0 11 97 L 50 97 Z"
                 fill="none"
-                stroke="#2196F3"
+                stroke="var(--progress-color, #2196F3)"
                 strokeWidth="3"
                 strokeLinecap="round"
                 strokeDasharray={`${progressLength} ${totalLength - progressLength}`}
