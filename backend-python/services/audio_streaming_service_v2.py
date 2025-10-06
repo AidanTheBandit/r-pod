@@ -4,11 +4,13 @@ Handles YouTube audio streaming using yt-dlp with cookie authentication
 
 CURRENT STATUS (October 2025):
 - yt-dlp is currently broken for many YouTube music/label videos due to new protections
+- PO Token extraction implemented via yt-dlp-get-pot plugin
 - Most public Piped instances are down/unreliable; fallback remains for future resilience
 - Service gracefully handles failures with accurate user feedback
 
 FEATURES:
 - Multiple yt-dlp strategies with robust error detection
+- PO Token extraction via yt-dlp-get-pot plugin
 - Piped fallback using public API
 - Cookie-based authentication for yt-dlp and YouTube Music
 - Strong error logging and user feedback
@@ -29,6 +31,12 @@ class AudioStreamingService:
     """Service for streaming YouTube audio with cookie authentication and Piped fallback"""
 
     def __init__(self, cookie: Optional[str] = None):
+        """
+        Initialize the audio streaming service
+        
+        Args:
+            cookie: YouTube Music cookie string for authentication
+        """
         self.cache = {}
         self.cookie = cookie
         self.cookie_file = None
@@ -183,7 +191,7 @@ class AudioStreamingService:
             'extract_flat': False,
             'ignoreerrors': False,
             'age_limit': None,
-            # Handle YouTube's new restrictions
+            # Handle YouTube's new restrictions with PO Token
             'extractor_args': {
                 'youtube': {
                     'player_client': ['android', 'web'],
