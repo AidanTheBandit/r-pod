@@ -218,11 +218,18 @@ async def root(request: Request):
     """Root endpoint - redirects to health or shows basic info"""
     client_ip = request.client.host if request.client else "unknown"
     user_agent = request.headers.get("User-Agent", "unknown")
-    logger.info(f"[Root] Request from {client_ip} - User-Agent: {user_agent}")
+    referer = request.headers.get("Referer", "none")
+    logger.info(f"[Root] Request from {client_ip}")
+    logger.info(f"[Root] User-Agent: {user_agent}")
+    logger.info(f"[Root] Referer: {referer}")
     
     # Check if this looks like a health check request (common monitoring patterns)
-    if "health" in user_agent.lower() or "monitor" in user_agent.lower() or "check" in user_agent.lower():
-        logger.info(f"[Root] Redirecting health check request to /health")
+    if ("health" in user_agent.lower() or 
+        "monitor" in user_agent.lower() or 
+        "check" in user_agent.lower() or
+        "r1" in user_agent.lower() or
+        "android" in user_agent.lower()):
+        logger.info(f"[Root] Detected monitoring/health check request, redirecting to /health")
         return RedirectResponse(url="/health", status_code=302)
     
     return {
@@ -233,7 +240,8 @@ async def root(request: Request):
         "cors_test": "/cors-test",
         "docs": "See /health for full status",
         "client_ip": client_ip,
-        "user_agent": user_agent[:100]  # Truncate long user agents
+        "user_agent": user_agent[:100],
+        "referer": referer
     }
 
 @app.get("/health")
