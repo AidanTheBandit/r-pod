@@ -22,10 +22,10 @@ function SettingsView() {
       console.error('Failed to parse saved backend config')
     }
     
-    // Fallback to environment variables or defaults
+    // Fallback to environment variables or empty defaults
     return {
-      url: import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001',
-      password: import.meta.env.VITE_BACKEND_PASSWORD || 'music-aggregator-2025'
+      url: import.meta.env.VITE_BACKEND_URL || '',
+      password: import.meta.env.VITE_BACKEND_PASSWORD || ''
     }
   })
   const [backendStatus, setBackendStatus] = useState(null)
@@ -69,13 +69,13 @@ function SettingsView() {
   const clearBackendConfig = () => {
     localStorage.removeItem('backend-config')
     const defaultConfig = {
-      url: import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001',
-      password: import.meta.env.VITE_BACKEND_PASSWORD || 'music-aggregator-2025'
+      url: '',
+      password: ''
     }
     setBackendConfig(defaultConfig)
     updateBackendConfig(defaultConfig.url, defaultConfig.password)
     setBackendStatus(null)
-    alert('Backend configuration reset to defaults!')
+    alert('Backend configuration cleared!')
   }
 
   // Save backend config to localStorage
@@ -131,31 +131,6 @@ function SettingsView() {
       id: 'backend',
       title: 'Backend Server',
       subtitle: backendStatus?.connected ? 'Connected' : 'Configure server',
-    },
-    {
-      id: 'spotify',
-      title: 'Spotify',
-      subtitle: services.spotify.enabled ? 'Connected' : 'Not connected',
-    },
-    {
-      id: 'youtubeMusic',
-      title: 'YouTube Music',
-      subtitle: services.youtubeMusic.enabled ? 'Connected' : 'Not connected',
-    },
-    {
-      id: 'jellyfin',
-      title: 'Jellyfin',
-      subtitle: services.jellyfin.enabled ? 'Connected' : 'Not connected',
-    },
-    {
-      id: 'navidrome',
-      title: 'Navidrome',
-      subtitle: services.navidrome.enabled ? 'Connected' : 'Not connected',
-    },
-    {
-      id: 'subsonic',
-      title: 'Subsonic',
-      subtitle: services.subsonic.enabled ? 'Connected' : 'Not connected',
     },
   ]
 
@@ -258,12 +233,8 @@ function SettingsView() {
 
           <div className="info-box">
             <strong>Backend Server Setup:</strong>
-            <ul>
-              <li>Run the backend server: <code>cd backend && node server.js</code></li>
-              <li>Default URL: <code>http://localhost:3001</code></li>
-              <li>Default Password: <code>music-aggregator-2025</code></li>
-              <li>Change password in production for security</li>
-            </ul>
+            <p>You must host your own backend server. Visit the GitHub repository to learn how to set up and host your own backend.</p>
+            <p><a href="https://github.com/AidanTheBandit/r-pod" target="_blank" rel="noopener noreferrer">GitHub Repository</a></p>
           </div>
         </div>
       </div>
@@ -491,8 +462,7 @@ function SettingsView() {
         <>
           <div className="settings-header">
             <p className="settings-description">
-              Connect your music streaming services. The backend aggregator will combine
-              all your music into one unified library.
+              Configure your theme and backend server connection.
             </p>
           </div>
           <ListView items={settingsItems} onItemClick={handleSettingClick} />
