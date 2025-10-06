@@ -164,39 +164,63 @@ print_info "Testing production build..."
 npm run build
 print_status "Production build successful"
 
-# Create startup script
-print_info "Creating startup script..."
-cat > start.sh << 'EOF'
+# Create verification script
+print_info "Creating verification script..."
+cat > verify-setup.sh << 'EOF'
 #!/bin/bash
-echo "🎵 Starting Music Aggregator..."
+echo "🔍 Verifying Music Aggregator Setup..."
 
-# Start backend
-echo "Starting backend..."
-cd backend-python
-source venv/bin/activate
-PORT=3451 python main.py &
-BACKEND_PID=$!
+# Colors
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
 
-cd ..
+check_service() {
+    if curl -f -s "$1" > /dev/null 2>&1; then
+        echo -e "${GREEN}✅ $2 available${NC}"
+    else
+        echo -e "${RED}❌ $2 not available${NC}"
+    fi
+}
 
-# Start frontend
-echo "Starting frontend..."
-npm run preview -- --port 3450 --host &
-FRONTEND_PID=$!
+# Check PO Token Provider
+echo "Checking YouTube PO Token Provider..."
+if docker ps --format 'table {{.Names}}' | grep -q "^youtube-po-token-provider$"; then
+    check_service "http://localhost:4416/health" "PO Token Provider"
+else
+    echo -e "${YELLOW}⚠️  PO Token Provider not running (required for YouTube)${NC}"
+fi
 
-echo "✅ Services started!"
-echo "📱 Frontend: http://localhost:3450"
-echo "🖥️  Backend: http://localhost:3451"
+# Check backend
+echo "Checking backend..."
+if [ -f "backend-python/venv/bin/activate" ]; then
+    source backend-python/venv/bin/activate
+    if python -c "import fastapi, yt_dlp; print('Backend dependencies OK')" 2>/dev/null; then
+        echo -e "${GREEN}✅ Backend dependencies installed${NC}"
+    else
+        echo -e "${RED}❌ Backend dependencies missing${NC}"
+    fi
+else
+    echo -e "${RED}❌ Backend virtual environment not found${NC}"
+fi
+
+# Check frontend
+echo "Checking frontend..."
+if [ -d "node_modules" ] && [ -d "dist" ]; then
+    echo -e "${GREEN}✅ Frontend built${NC}"
+else
+    echo -e "${RED}❌ Frontend not built${NC}"
+fi
+
 echo ""
-echo "Press Ctrl+C to stop all services"
-
-# Wait for interrupt
-trap "echo 'Stopping services...'; kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit" INT
-wait
+echo "🎵 Run './start.sh' to start services"
+echo "📱 Frontend will be at: http://localhost:3450"
+echo "🖥️  Backend will be at: http://localhost:3451"
 EOF
 
-chmod +x start.sh
-print_status "Created start.sh script"
+chmod +x verify-setup.sh
+print_status "Created verify-setup.sh script"
 
 echo ""
 print_status "Setup completed successfully!"
@@ -205,9 +229,10 @@ print_info "Next steps:"
 echo "  1. Edit backend-python/.env with your YouTube Music cookie and change the password"
 echo "  2. Edit .env.local with your backend password"
 echo "  3. Add your icon.png to the public/ directory (replaces the placeholder)"
-echo "  4. Run './start.sh' to test locally"
-echo "  5. Run './cleanup.sh' to optimize for production"
-echo "  6. Follow SELF_HOSTING_GUIDE.md for production deployment"
+echo "  4. Run './verify-setup.sh' to check everything is working"
+echo "  5. Run './start.sh' to test locally"
+echo "  6. Run './cleanup.sh' to optimize for production"
+echo "  7. Follow SELF_HOSTING_GUIDE.md for production deployment"
 echo ""
 print_warning "Important security reminders:"
 echo "  - Change the default password from 'change-me-in-production-please'"
