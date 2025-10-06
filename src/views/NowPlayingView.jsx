@@ -64,13 +64,13 @@ function NowPlayingView() {
   // Calculate progress percentage (clamp between 0-100 to avoid negative values)
   const progressPercentage = duration ? Math.max(0, Math.min(100, (currentTime / duration) * 100)) : 0
   
-  // Calculate strokeDashoffset for progress bar
-  // Perimeter of rounded rectangle: 4*78 + 4*(π*8/2) ≈ 312 + 50.26 = 362.26
-  // Start from bottom center: offset by ~220 to position at bottom center
-  // As progress increases, dashoffset decreases (revealing more of the stroke clockwise)
+  // Calculate progress for SVG progress bar
+  // Perimeter of rounded rectangle: ~362 units
+  // Start from bottom center: offset by ~220
+  // Progress fills clockwise from bottom center
   const totalLength = 362
-  const startOffset = 220 // Offset to start from bottom center
-  const progressOffset = totalLength * (1 - progressPercentage / 100)
+  const startOffset = 220 // Position of bottom center along the path
+  const progressLength = totalLength * (progressPercentage / 100)
 
   return (
     <div className="now-playing-view view-wrapper">
@@ -103,8 +103,8 @@ function NowPlayingView() {
                 stroke="#2196F3"
                 strokeWidth="3"
                 strokeLinecap="round"
-                strokeDasharray={totalLength}
-                strokeDashoffset={progressOffset + startOffset}
+                strokeDasharray={`${progressLength} ${totalLength - progressLength}`}
+                strokeDashoffset={startOffset}
                 rx="8"
                 ry="8"
                 className="progress-border-path"
