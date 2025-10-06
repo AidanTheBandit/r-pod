@@ -191,21 +191,30 @@ body.rabbit {
   background: #000;
   font-family: 'PowerGrotesk', -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   color: #fff;
-  text-transform: lowercase;
 }
 
 body.rabbit #root {
   background: #000;
 }
 
+/* Rabbit theme text transform */
+.rabbit {
+  text-transform: lowercase !important;
+}
+
+/* UI text in lists */
+.rabbit .ui-list .item-text {
+  text-transform: lowercase !important;
+}
+
 /* Content text should remain normal case */
-body.rabbit .item-text,
-body.rabbit .item-subtitle,
-body.rabbit .track-title,
-body.rabbit .track-artist,
-body.rabbit .view-header h2,
-body.rabbit .playlist-info,
-body.rabbit .album-info,
-body.rabbit .artist-info {
-  text-transform: none;
+.rabbit .item-text,
+.rabbit .item-subtitle,
+.rabbit .track-title,
+.rabbit .track-artist,
+.rabbit .view-header h2,
+.rabbit .playlist-info,
+.rabbit .album-info,
+.rabbit .artist-info {
+  text-transform: none !important;
 }

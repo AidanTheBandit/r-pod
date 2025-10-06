@@ -8,7 +8,8 @@ function ListView({
   selectedIndex: propSelectedIndex,
   onLoadMore,
   hasMore = false,
-  loading = false
+  loading = false,
+  className = ''
 }) {
   const { selectedIndex: storeSelectedIndex } = useNavigationStore()
   const listRef = useRef(null)
@@ -56,7 +57,7 @@ function ListView({
   }, [handleScroll, onLoadMore])
   
   return (
-    <div className="list-view-container">
+    <div className={`list-view-container ${className}`}>
       <ul className="ipod-list" ref={listRef}>
         {items.map((item, index) => (
           <li

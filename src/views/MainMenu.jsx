@@ -22,7 +22,7 @@ function MainMenu() {
   
   return (
     <div className="main-menu-view view-wrapper">
-      <ListView items={menuItems} onItemClick={handleItemClick} />
+      <ListView items={menuItems} onItemClick={handleItemClick} className="ui-list" />
     </div>
   )
 }
