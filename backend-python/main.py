@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Optional
 from contextlib import asynccontextmanager
 import asyncio
 
-from fastapi import FastAPI, HTTPException, Depends, Header, Query
+from fastapi import FastAPI, HTTPException, Request, Query, Header, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse, Response
 from pydantic import BaseModel
@@ -212,6 +212,24 @@ async def aggregate(session: Dict[str, Any], method: str, *args, **kwargs) -> Li
 
 
 # API Routes
+@app.get("/")
+async def root(request: Request):
+    """Root endpoint - redirects to health or shows basic info"""
+    client_ip = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("User-Agent", "unknown")
+    logger.info(f"[Root] Request from {client_ip} - User-Agent: {user_agent}")
+    
+    return {
+        "message": "iPod Music Backend API",
+        "version": "2.0.0",
+        "status": "running",
+        "health": "/health",
+        "cors_test": "/cors-test",
+        "docs": "See /health for full status",
+        "client_ip": client_ip,
+        "user_agent": user_agent[:100]  # Truncate long user agents
+    }
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
