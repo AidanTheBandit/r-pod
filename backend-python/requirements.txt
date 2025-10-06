@@ -11,6 +11,8 @@ python-dotenv==1.0.1
 # Music Services
 ytmusicapi==1.8.1
 yt-dlp==2024.12.13
+yt-dlp-get-pot
+bgutil-ytdlp-pot-provider
 spotipy==2.24.0
 
 # HTTP Client

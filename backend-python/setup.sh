@@ -52,6 +52,10 @@ if [ ! -f ".env" ]; then
     echo "   - YOUTUBE_MUSIC_COOKIE"
     echo "   - Other service credentials (optional)"
     echo ""
+    echo "⚠️  IMPORTANT: YouTube requires PO tokens for October 2025+"
+    echo "   Run this after setup:"
+    echo "   docker run --name bgutil-provider -d -p 4416:4416 --init brainicism/bgutil-ytdlp-pot-provider"
+    echo ""
     read -p "Press Enter to edit .env now, or Ctrl+C to exit and edit manually..."
     ${EDITOR:-nano} .env
 fi

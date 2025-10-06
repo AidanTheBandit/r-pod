@@ -114,8 +114,8 @@ class AudioStreamingService:
             # Handle YouTube's new restrictions
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['android_music', 'web_music'],
-                    'player_skip': ['js', 'configs'],
+                    'player_client': ['mweb', 'android_music'],
+                    'player_skip': ['webpage'],
                 }
             },
             'http_headers': {
@@ -160,8 +160,8 @@ class AudioStreamingService:
             # Handle YouTube's new restrictions
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['android', 'web'],
-                    'player_skip': ['js', 'configs'],
+                    'player_client': ['mweb', 'android'],
+                    'player_skip': ['webpage'],
                 }
             },
             'http_headers': {
@@ -191,24 +191,18 @@ class AudioStreamingService:
             'extract_flat': False,
             'ignoreerrors': False,
             'age_limit': None,
-            # Handle YouTube's new restrictions with PO Token
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['android', 'web'],
-                    'player_skip': ['js', 'configs'],
+                    'player_client': ['android', 'ios', 'mweb'],  # Use clients that work better
+                    'player_skip': ['webpage'],  # Skip webpage extraction
                 }
             },
             'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36',
+                'User-Agent': 'com.google.android.youtube/19.29.37 (Linux; U; Android 13) gzip',
                 'Accept': '*/*',
                 'Accept-Language': 'en-US,en;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'DNT': '1',
-                'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1',
             },
         }
-
         url = f"https://www.youtube.com/watch?v={video_id}"
         return await self._extract_with_opts(url, ydl_opts, "YouTube URL (no auth)")
 
@@ -216,9 +210,9 @@ class AudioStreamingService:
         """Try most basic extraction possible with multiple client fallbacks"""
         # Try different client configurations
         clients_to_try = [
-            {'player_client': ['android', 'web'], 'player_skip': ['js', 'configs']},
+            {'player_client': ['mweb', 'android'], 'player_skip': ['webpage']},
             {'player_client': ['ios', 'web'], 'player_skip': ['js']},
-            {'player_client': ['tvhtml5', 'web'], 'player_skip': []},
+            {'player_client': ['tv_embedded'], 'player_skip': []},
         ]
 
         for i, client_config in enumerate(clients_to_try):

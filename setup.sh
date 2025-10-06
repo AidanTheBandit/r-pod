@@ -124,6 +124,23 @@ fi
 
 cd ..
 
+# Setup YouTube PO Token Provider (Required for October 2025+)
+print_info "Setting up YouTube PO Token Provider..."
+if command -v docker &> /dev/null; then
+    if ! docker ps -a --format 'table {{.Names}}' | grep -q "^youtube-po-token-provider$"; then
+        print_info "Starting YouTube PO Token Provider..."
+        docker run --name youtube-po-token-provider -d -p 4416:4416 --init brainicism/bgutil-ytdlp-pot-provider
+        print_status "YouTube PO Token Provider started"
+    else
+        print_warning "YouTube PO Token Provider already running"
+    fi
+else
+    print_warning "Docker not found. Please install Docker and run:"
+    print_info "docker run --name youtube-po-token-provider -d -p 4416:4416 --init brainicism/bgutil-ytdlp-pot-provider"
+fi
+
+cd backend-python
+
 # Setup Node.js dependencies
 print_info "Installing Node.js dependencies..."
 npm install
@@ -195,6 +212,7 @@ echo ""
 print_warning "Important security reminders:"
 echo "  - Change the default password from 'change-me-in-production-please'"
 echo "  - Get your YouTube Music cookie (see SELF_HOSTING_GUIDE.md)"
+echo "  - YouTube PO Token Provider is running (required for October 2025+)"
 echo "  - Set up HTTPS in production"
 echo "  - Configure firewall rules"
 echo ""

@@ -25,3 +25,18 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+
+  # YouTube PO Token Provider (Required for October 2025+ YouTube bot protection)
+  po-token-provider:
+    image: brainicism/bgutil-ytdlp-pot-provider:latest
+    container_name: youtube-po-token-provider
+    ports:
+      - "4416:4416"
+    restart: unless-stopped
+    init: true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4416/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

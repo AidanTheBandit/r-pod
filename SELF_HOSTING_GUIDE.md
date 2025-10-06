@@ -488,6 +488,36 @@ curl "http://localhost:3451/api/debug/accounts?sessionId=test" \
 
 Look for the account with your preferred music library and set `YOUTUBE_MUSIC_PROFILE` accordingly.
 
+#### YouTube Bot Protection Setup (Required - October 2025)
+
+YouTube has implemented advanced bot protection requiring **PO tokens**. Without them, yt-dlp fails with "Failed to extract any player response".
+
+**Install PO Token Provider:**
+
+```bash
+# Dependencies are included in requirements.txt
+cd backend-python
+pip install yt-dlp-get-pot bgutil-ytdlp-pot-provider
+
+# Run provider (choose one):
+
+# Docker (recommended):
+docker run --name bgutil-provider -d -p 4416:4416 --init brainicism/bgutil-ytdlp-pot-provider
+
+# Manual (requires Node.js):
+git clone --single-branch --branch 1.1.0 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git
+cd bgutil-ytdlp-pot-provider/server/
+yarn install --frozen-lockfile
+npx tsc
+node build/main.js
+```
+
+**Verify Installation:**
+```bash
+yt-dlp -v https://www.youtube.com/watch?v=dIdiuPPD69E
+```
+Should show: `[debug] [youtube] [pot] PO Token Providers: bgutil:http-1.1.0 (external)`
+
 #### Cookie Refresh
 
 YouTube cookies expire. Refresh them:

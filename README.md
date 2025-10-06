@@ -111,6 +111,25 @@ npm run host-both
 2. **Configure**: Add to `backend-python/.env`
 3. **Test**: Run account debugging to find correct profile
 
+#### YouTube Bot Protection Setup (Required - October 2025)
+
+YouTube requires **PO tokens** to bypass bot protection. Install the automatic provider:
+
+```bash
+# Install dependencies (included in requirements.txt)
+cd backend-python
+pip install yt-dlp-get-pot bgutil-ytdlp-pot-provider
+
+# Run PO token provider:
+docker run --name bgutil-provider -d -p 4416:4416 --init brainicism/bgutil-ytdlp-pot-provider
+
+# Verify:
+yt-dlp -v https://www.youtube.com/watch?v=dIdiuPPD69E
+# Should show: [debug] [youtube] [pot] PO Token Providers: bgutil:http-1.1.0 (external)
+```
+
+Without PO tokens, you'll get "Failed to extract any player response" errors.
+
 ### Spotify (Optional)
 
 1. **Create App**: [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)

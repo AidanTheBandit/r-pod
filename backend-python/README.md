@@ -133,6 +133,48 @@ For the best experience with library access (your playlists, albums, artists), u
 
 The backend will automatically detect and use `headers_auth.json` for full library access.
 
+### YouTube Bot Protection Setup (Required for October 2025+)
+
+YouTube has implemented advanced bot protection that requires **Proof of Origin (PO) tokens** for video extraction. Without these tokens, yt-dlp will fail with "Failed to extract any player response" errors.
+
+#### Option 1: Automatic PO Token Provider (Recommended)
+
+Install and run the bgutil PO token provider:
+
+```bash
+# Install dependencies (already included in requirements.txt)
+pip install yt-dlp-get-pot bgutil-ytdlp-pot-provider
+
+# Run the PO token provider (choose one method):
+
+# Docker (easiest):
+docker run --name bgutil-provider -d -p 4416:4416 --init brainicism/bgutil-ytdlp-pot-provider
+
+# Manual with Node.js:
+git clone --single-branch --branch 1.1.0 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git
+cd bgutil-ytdlp-pot-provider/server/
+yarn install --frozen-lockfile
+npx tsc
+node build/main.js
+```
+
+**Verify installation:**
+```bash
+yt-dlp -v https://www.youtube.com/watch?v=dIdiuPPD69E
+```
+Look for: `[debug] [youtube] [pot] PO Token Providers: bgutil:http-1.1.0 (external)`
+
+#### Option 2: Manual PO Token Setup
+
+If the automatic provider doesn't work, you can manually configure PO tokens:
+
+1. Visit a YouTube video in your browser
+2. Open Developer Tools (F12) → Console
+3. Run: `window.ytcfg.get('PO_TOKEN')`
+4. Add the token to your yt-dlp configuration (advanced users only)
+
+The automatic provider handles this automatically and refreshes tokens as needed.
+
 ### Multiple YouTube Music Profiles
 
 If you have multiple YouTube Music brand accounts:
