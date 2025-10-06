@@ -1405,6 +1405,33 @@ class YouTubeMusicAggregator(BaseMusicService):
         
         return radio_tracks
     
+    async def rate_song(self, video_id: str, rating: str) -> Optional[Dict[str, Any]]:
+        """
+        Rate a song (like/dislike)
+        
+        Args:
+            video_id: YouTube video ID
+            rating: One of 'LIKE', 'DISLIKE', or 'INDIFFERENT'
+        
+        Returns:
+            Response from YouTube Music API
+        """
+        if not self.is_authenticated:
+            await self.authenticate()
+        
+        try:
+            logger.info(f"[YTM] Rating song {video_id} as {rating}")
+            response = await self._run_sync(
+                self.ytm.rate_song,
+                videoId=video_id,
+                rating=rating
+            )
+            logger.info(f"[YTM] Successfully rated song {video_id}")
+            return response
+        except Exception as e:
+            logger.error(f"[YTM] Error rating song {video_id}: {e}")
+            return None
+    
     async def start_radio_from_song(self, song_id: str, limit: int = 20):
         """Start radio from one song (standard YTM behavior)"""
         if not self.is_authenticated:
@@ -1676,7 +1703,8 @@ class YouTubeMusicAggregator(BaseMusicService):
                 "albumArt": thumbnail,
                 "streamUrl": f"/api/stream/youtube/{video_id}",
                 "service": "youtubeMusic",
-                "videoId": video_id
+                "videoId": video_id,
+                "likeStatus": track.get("likeStatus", "INDIFFERENT")
             }
         except Exception as e:
             logger.error(f"[YTM] Error mapping track: {e}")

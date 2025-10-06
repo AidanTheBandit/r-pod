@@ -164,6 +164,84 @@
   white-space: nowrap;
 }
 
+/* ===========================================
+   Rating Controls
+   =========================================== */
+
+.rating-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4vw;
+  margin-top: 2vw;
+  margin-bottom: 2vw;
+  flex-shrink: 0;
+}
+
+.rating-btn {
+  background: none;
+  border: none;
+  padding: 2vw;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  min-width: 12vw;
+  min-height: 12vw;
+}
+
+.rating-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.rating-btn:active {
+  transform: scale(0.95);
+}
+
+.rating-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rating-btn.loading {
+  opacity: 0.7;
+}
+
+.rating-btn.loading::after {
+  content: '';
+  position: absolute;
+  width: 4vw;
+  height: 4vw;
+  border: 1px solid #ccc;
+  border-top: 1px solid #666;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.like-btn.active {
+  color: #ff4757;
+}
+
+.like-btn:hover:not(.active) {
+  color: #ff4757;
+}
+
+.dislike-btn.active {
+  color: #3742fa;
+}
+
+.dislike-btn:hover:not(.active) {
+  color: #3742fa;
+}
+
 /* Control instructions and error banner removed for cleaner UX */
 
 /* ===========================================

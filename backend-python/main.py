@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Optional
 from contextlib import asynccontextmanager
 import asyncio
 
-from fastapi import FastAPI, HTTPException, Request, Query, Header, Response, Depends
+from fastapi import FastAPI, HTTPException, Request, Query, Header, Response, Depends, Body
 from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse, Response
@@ -506,6 +506,53 @@ async def get_radio(
     return {"tracks": tracks}
 
 
+@app.post("/api/songs/{videoId}/rate")
+async def rate_song(
+    videoId: str,
+    rating: str = Body(..., embed=True),
+    sessionId: str = Query(...),
+    authenticated: bool = Depends(verify_password)
+):
+    """Rate a song using YouTube Music API"""
+    if rating not in ['LIKE', 'DISLIKE', 'INDIFFERENT']:
+        raise HTTPException(400, "Invalid rating. Must be LIKE, DISLIKE, or INDIFFERENT")
+    
+    session = get_session(sessionId)
+    
+    ytm_service = session["services"].get("youtubeMusic")
+    if not ytm_service:
+        raise HTTPException(404, "YouTube Music not connected")
+    
+    result = await ytm_service.rate_song(videoId, rating)
+    
+    if result is None:
+        raise HTTPException(500, "Failed to rate song")
+    
+    return {"success": True, "video_id": videoId, "rating": rating}
+
+
+@app.get("/api/songs/{videoId}")
+async def get_song_info(
+    videoId: str,
+    sessionId: str = Query(...),
+    authenticated: bool = Depends(verify_password)
+):
+    """Get song info including like status"""
+    session = get_session(sessionId)
+    
+    ytm_service = session["services"].get("youtubeMusic")
+    if not ytm_service:
+        raise HTTPException(404, "YouTube Music not connected")
+    
+    # Search for the song to get its current status
+    results = await ytm_service.search(videoId, limit=1)
+    
+    if results and len(results) > 0:
+        return results[0]
+    
+    raise HTTPException(404, "Song not found")
+
+
 @app.get("/api/debug/auth")
 async def debug_auth(
     sessionId: str = Query(...),
@@ -675,48 +722,75 @@ async def stream_youtube(
             headers["Range"] = range_header
             logger.info(f"[Stream] Range request: {range_header}")
         
-        # Stream the audio with proper error handling
+        # Stream the audio with proper error handling and retry logic
         async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
-            try:
-                response = await client.get(stream_url, headers=headers)
-                
-                if response.status_code == 403:
-                    logger.error(f"[Stream] 403 Forbidden - URL may have expired, refetching...")
-                    # Try to get a fresh URL
-                    stream_info = await audio_streaming_service.get_stream_url(videoId)
-                    stream_url = stream_info["url"]
+            max_retries = 3
+            retry_count = 0
+            
+            while retry_count <= max_retries:
+                try:
                     response = await client.get(stream_url, headers=headers)
+                    
+                    if response.status_code == 403 and retry_count < max_retries:
+                        retry_count += 1
+                        logger.warning(f"[Stream] 403 Forbidden - retrying ({retry_count}/{max_retries})...")
+                        # Get a fresh URL and retry
+                        stream_info = await audio_streaming_service.get_stream_url(videoId)
+                        if stream_info and stream_info.get("url"):
+                            stream_url = stream_info["url"]
+                            continue
+                        else:
+                            logger.error(f"[Stream] Failed to get fresh URL after 403 error")
+                            raise HTTPException(503, "Stream URL unavailable after retries")
+                    elif response.status_code == 403:
+                        logger.error(f"[Stream] 403 Forbidden - max retries exceeded")
+                        raise HTTPException(403, "Stream access denied - YouTube URL expired")
+                    
+                    # Success - prepare response headers with CORS
+                    response_headers = {
+                        "Content-Type": response.headers.get("Content-Type", "audio/webm"),
+                        "Accept-Ranges": "bytes",
+                        "Cache-Control": "no-cache",  # Don't cache, URLs expire
+                        "Access-Control-Allow-Origin": "*",
+                        "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+                        "Access-Control-Allow-Headers": "Range, Content-Type",
+                        "Access-Control-Expose-Headers": "Content-Length, Content-Range, Accept-Ranges"
+                    }
+                    
+                    # Add Content-Length and Range headers if present
+                    if "Content-Length" in response.headers:
+                        response_headers["Content-Length"] = response.headers["Content-Length"]
+                    if "Content-Range" in response.headers:
+                        response_headers["Content-Range"] = response.headers["Content-Range"]
+                    
+                    content_length = len(response.content)
+                    logger.info(f"[Stream] ✓ Proxying {content_length} bytes (status: {response.status_code})")
+                    
+                    return Response(
+                        content=response.content,
+                        status_code=response.status_code,
+                        headers=response_headers,
+                        media_type=response.headers.get("Content-Type", "audio/webm")
+                    )
+                    
+                except httpx.HTTPStatusError as e:
+                    if e.response.status_code == 403 and retry_count < max_retries:
+                        retry_count += 1
+                        logger.warning(f"[Stream] HTTP 403 error - retrying ({retry_count}/{max_retries})...")
+                        # Get a fresh URL and retry
+                        stream_info = await audio_streaming_service.get_stream_url(videoId)
+                        if stream_info and stream_info.get("url"):
+                            stream_url = stream_info["url"]
+                            continue
+                        else:
+                            logger.error(f"[Stream] Failed to get fresh URL after HTTP 403 error")
+                            raise HTTPException(503, "Stream URL unavailable after retries")
+                    else:
+                        logger.error(f"[Stream] HTTP error {e.response.status_code}: {e}")
+                        raise HTTPException(e.response.status_code, f"Stream error: {e}")
                 
-                # Prepare response headers with CORS
-                response_headers = {
-                    "Content-Type": response.headers.get("Content-Type", "audio/webm"),
-                    "Accept-Ranges": "bytes",
-                    "Cache-Control": "no-cache",  # Don't cache, URLs expire
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
-                    "Access-Control-Allow-Headers": "Range, Content-Type",
-                    "Access-Control-Expose-Headers": "Content-Length, Content-Range, Accept-Ranges"
-                }
-                
-                # Add Content-Length and Range headers if present
-                if "Content-Length" in response.headers:
-                    response_headers["Content-Length"] = response.headers["Content-Length"]
-                if "Content-Range" in response.headers:
-                    response_headers["Content-Range"] = response.headers["Content-Range"]
-                
-                content_length = len(response.content)
-                logger.info(f"[Stream] ✓ Proxying {content_length} bytes (status: {response.status_code})")
-                
-                return Response(
-                    content=response.content,
-                    status_code=response.status_code,
-                    headers=response_headers,
-                    media_type=response.headers.get("Content-Type", "audio/webm")
-                )
-                
-            except httpx.HTTPStatusError as e:
-                logger.error(f"[Stream] HTTP error {e.response.status_code}: {e}")
-                raise HTTPException(e.response.status_code, f"Stream error: {e}")
+                # If we get here, we've exhausted retries
+                break
         
     except HTTPException:
         raise

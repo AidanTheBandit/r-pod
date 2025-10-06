@@ -1,5 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePlayerStore } from '../store/playerStore'
+import { Heart, ThumbsDown } from 'phosphor-react'
+import backendAPI from '../services/backendClient'
 import './NowPlayingView.css'
 
 /**
@@ -20,16 +22,38 @@ function NowPlayingView() {
     togglePlayPause,
   } = usePlayerStore()
   
+  const [likeStatus, setLikeStatus] = useState('INDIFFERENT')
+  const [ratingLoading, setRatingLoading] = useState(false)
+  
   const frameRef = useRef(null)
   const artworkRef = useRef(null)
   const containerRef = useRef(null)
   
-  // Scroll to top when view loads
+  // Update like status when track changes
   useEffect(() => {
-    if (containerRef.current) {
-      containerRef.current.scrollTop = 0
+    if (currentTrack?.likeStatus) {
+      setLikeStatus(currentTrack.likeStatus)
+    } else {
+      setLikeStatus('INDIFFERENT')
     }
-  }, [])
+  }, [currentTrack])
+  
+  // Handle rating a song
+  const handleRating = async (rating) => {
+    if (!currentTrack?.videoId || ratingLoading) return
+    
+    try {
+      setRatingLoading(true)
+      const newRating = likeStatus === rating ? 'INDIFFERENT' : rating
+      
+      await backendAPI.rateSong(currentTrack.videoId, newRating)
+      setLikeStatus(newRating)
+    } catch (error) {
+      console.error('Failed to rate song:', error)
+    } finally {
+      setRatingLoading(false)
+    }
+  }
   
   // Fit album art to progress border
   useEffect(() => {
@@ -131,6 +155,33 @@ function NowPlayingView() {
         <div className="track-info">
           <h1 className="track-title">{currentTrack.title}</h1>
           <h2 className="track-artist">{currentTrack.artist || 'Unknown Artist'}</h2>
+        </div>
+        
+        {/* Rating Controls */}
+        <div className="rating-controls">
+          <button
+            className={`rating-btn like-btn ${likeStatus === 'LIKE' ? 'active' : ''} ${ratingLoading ? 'loading' : ''}`}
+            onClick={() => handleRating('LIKE')}
+            disabled={ratingLoading}
+            title={likeStatus === 'LIKE' ? 'Remove like' : 'Like this song'}
+          >
+            <Heart 
+              size={24} 
+              weight={likeStatus === 'LIKE' ? 'fill' : 'regular'} 
+            />
+          </button>
+          
+          <button
+            className={`rating-btn dislike-btn ${likeStatus === 'DISLIKE' ? 'active' : ''} ${ratingLoading ? 'loading' : ''}`}
+            onClick={() => handleRating('DISLIKE')}
+            disabled={ratingLoading}
+            title={likeStatus === 'DISLIKE' ? 'Remove dislike' : 'Dislike this song'}
+          >
+            <ThumbsDown 
+              size={24} 
+              weight={likeStatus === 'DISLIKE' ? 'fill' : 'regular'} 
+            />
+          </button>
         </div>
       </div>
     </div>

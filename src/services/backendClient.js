@@ -296,6 +296,18 @@ export const backendAPI = {
     const response = await client.get(`/api/radio/${videoId}`)
     return response.data.tracks || []
   },
+
+  // Rate a song (like/dislike)
+  async rateSong(videoId, rating) {
+    const response = await client.post(`/api/songs/${videoId}/rate`, { rating })
+    return response.data
+  },
+
+  // Get song info including like status
+  async getSongInfo(videoId) {
+    const response = await client.get(`/api/songs/${videoId}`)
+    return response.data
+  },
 }
 
 export default backendAPI
