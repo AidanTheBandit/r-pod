@@ -214,20 +214,46 @@ class AudioStreamingService:
         return await self._extract_with_opts(url, ydl_opts, "YouTube URL (no auth)")
     
     async def _try_basic_extraction(self, video_id: str) -> Optional[Dict[str, Any]]:
-        """Try most basic extraction possible"""
-        ydl_opts = {
-            'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
-            'quiet': False,  # Enable output to see what's happening
-            'extract_flat': False,
-            'ignoreerrors': True,
-            'no_check_certificate': True,
-        }
+        """Try most basic extraction possible with multiple client fallbacks"""
+        # Try different client configurations
+        clients_to_try = [
+            {'player_client': ['android', 'web'], 'player_skip': ['js', 'configs']},
+            {'player_client': ['ios', 'web'], 'player_skip': ['js']},
+            {'player_client': ['tvhtml5', 'web'], 'player_skip': []},
+        ]
         
-        if self.cookie_file:
-            ydl_opts['cookiefile'] = self.cookie_file.name
+        for i, client_config in enumerate(clients_to_try):
+            try:
+                ydl_opts = {
+                    'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
+                    'quiet': False,  # Enable output to see what's happening
+                    'extract_flat': False,
+                    'ignoreerrors': True,
+                    'no_check_certificate': True,
+                    'extractor_args': {'youtube': client_config},
+                    'http_headers': {
+                        'User-Agent': 'Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36',
+                        'Accept': '*/*',
+                        'Accept-Language': 'en-US,en;q=0.9',
+                        'Accept-Encoding': 'gzip, deflate, br',
+                        'DNT': '1',
+                        'Connection': 'keep-alive',
+                    },
+                }
+                
+                if self.cookie_file:
+                    ydl_opts['cookiefile'] = self.cookie_file.name
+                
+                url = f"https://www.youtube.com/watch?v={video_id}"
+                result = await self._extract_with_opts(url, ydl_opts, f"_try_basic_extraction (client {i+1})")
+                if result:
+                    return result
+                    
+            except Exception as e:
+                logger.debug(f"[AudioStream] Basic extraction client {i+1} failed: {e}")
+                continue
         
-        url = f"https://www.youtube.com/watch?v={video_id}"
-        return await self._extract_with_opts(url, ydl_opts, "_try_basic_extraction")
+        return None
     
     async def _extract_with_opts(self, url: str, ydl_opts: dict, strategy_name: str) -> Optional[Dict[str, Any]]:
         """Common extraction logic"""
