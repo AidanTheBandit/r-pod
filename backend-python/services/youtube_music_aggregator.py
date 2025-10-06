@@ -1741,3 +1741,8 @@ class YouTubeMusicAggregator(BaseMusicService):
                 "description": playlist.get("description", ""),
                 "trackCount": track_count,
                 "coverArt": thumbnail,
+                "service": "youtubeMusic"
+            }
+        except Exception as e:
+            logger.error(f"[YTM] Error mapping playlist: {e}")
+            return None
