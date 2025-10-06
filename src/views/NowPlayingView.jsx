@@ -66,10 +66,8 @@ function NowPlayingView() {
   
   // Calculate progress for SVG progress bar
   // Perimeter of rounded rectangle: ~362 units
-  // Start from bottom center: offset by ~220
   // Progress fills clockwise from bottom center
   const totalLength = 362
-  const startOffset = 220 // Position of bottom center along the path
   const progressLength = totalLength * (progressPercentage / 100)
 
   return (
@@ -94,19 +92,14 @@ function NowPlayingView() {
                 ry="8"
               />
               {/* Progress border - starts from bottom center, moves clockwise */}
-              <rect
-                x="3"
-                y="3"
-                width="94"
-                height="94"
+              <path
+                d="M 50 97 L 89 97 A 8 8 0 0 1 97 89 L 97 11 A 8 8 0 0 1 89 3 L 11 3 A 8 8 0 0 1 3 11 L 3 89 A 8 8 0 0 1 11 97 L 50 97 Z"
                 fill="none"
                 stroke="#2196F3"
                 strokeWidth="3"
                 strokeLinecap="round"
                 strokeDasharray={`${progressLength} ${totalLength - progressLength}`}
-                strokeDashoffset={startOffset}
-                rx="8"
-                ry="8"
+                strokeDashoffset="0"
                 className="progress-border-path"
               />
             </svg>
