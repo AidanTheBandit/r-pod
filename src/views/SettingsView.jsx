@@ -63,12 +63,26 @@ function SettingsView() {
     }
   }, []) // Only run once on mount
 
+  // Clear saved backend config
+  const clearBackendConfig = () => {
+    localStorage.removeItem('backend-config')
+    const defaultConfig = {
+      url: import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001',
+      password: import.meta.env.VITE_BACKEND_PASSWORD || 'music-aggregator-2025'
+    }
+    setBackendConfig(defaultConfig)
+    updateBackendConfig(defaultConfig.url, defaultConfig.password)
+    setBackendStatus(null)
+    alert('Backend configuration reset to defaults!')
+  }
+
   // Save backend config to localStorage
   const saveBackendConfig = (config) => {
     setBackendConfig(config)
     localStorage.setItem('backend-config', JSON.stringify(config))
     // Update the global backend client config
     updateBackendConfig(config.url, config.password)
+    alert('Backend configuration saved! The app will now use these settings.')
   }
 
   // Save service configs to localStorage
@@ -210,6 +224,12 @@ function SettingsView() {
               onClick={() => saveBackendConfig(backendConfig)}
             >
               Save Configuration
+            </button>
+            <button
+              className="connect-btn secondary"
+              onClick={clearBackendConfig}
+            >
+              Reset to Defaults
             </button>
           </div>
 

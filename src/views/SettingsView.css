@@ -112,9 +112,14 @@
   color: white;
 }
 
-.connect-btn:active {
-  background: #4a8fc4;
-  transform: scale(0.98);
+.connect-btn.secondary {
+  background: #f0f0f0;
+  color: #666;
+  border: 0.35vh solid #ccc;
+}
+
+.connect-btn.secondary:active {
+  background: #e0e0e0;
 }
 
 .disconnect-btn {
