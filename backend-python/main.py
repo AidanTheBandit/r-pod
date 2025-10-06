@@ -639,7 +639,20 @@ async def stream_youtube(
         # Get fresh stream URL from yt-dlp
         stream_info = await audio_streaming_service.get_stream_url(videoId)
         
-        if not stream_info or not stream_info.get("url"):
+        # Check for YouTube protection errors
+        if not stream_info:
+            logger.error(f"[Stream] No stream info available for {videoId}")
+            raise HTTPException(503, "Stream URL not available")
+        
+        # Handle structured error responses from yt-dlp protection issues
+        if stream_info.get('error') == 'YOUTUBE_PROTECTION':
+            logger.warning(f"[Stream] YouTube protection error for {videoId}: {stream_info.get('error_message')}")
+            raise HTTPException(
+                451,  # 451 Unavailable For Legal Reasons - appropriate for content protection
+                detail=stream_info.get('error_message', 'Content temporarily unavailable due to YouTube protections')
+            )
+        
+        if not stream_info.get("url"):
             logger.error(f"[Stream] No stream URL available for {videoId}")
             raise HTTPException(503, "Stream URL not available")
         

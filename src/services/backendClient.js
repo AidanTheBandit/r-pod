@@ -167,6 +167,13 @@ const initializeClient = () => {
     (error) => {
       if (error.response?.status === 401) {
         console.error('Authentication failed - check backend password')
+      } else if (error.response?.status === 451) {
+        console.warn('YouTube protection error:', error.response.data?.detail || 'Content temporarily unavailable due to YouTube protections')
+        // Re-throw with additional context for UI handling
+        const protectionError = new Error(error.response.data?.detail || 'Content temporarily unavailable due to YouTube protections')
+        protectionError.code = 'YOUTUBE_PROTECTION'
+        protectionError.status = 451
+        return Promise.reject(protectionError)
       } else if (error.response?.status === 500) {
         console.error('Backend server error:', error.response.data)
       } else if (error.code === 'ECONNREFUSED') {

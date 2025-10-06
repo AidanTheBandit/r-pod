@@ -256,20 +256,20 @@ class AudioStreamingService:
         return None
     
     async def _extract_with_opts(self, url: str, ydl_opts: dict, strategy_name: str) -> Optional[Dict[str, Any]]:
-        """Common extraction logic"""
+        """Common extraction logic with enhanced error handling for YouTube protections"""
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
-                
+
                 if not info:
                     raise Exception(f"No info returned")
-                
+
                 # Get the stream URL
                 stream_url = info.get('url')
-                
+
                 if stream_url:
                     logger.info(f"[AudioStream] ✓ {strategy_name} success - format: {info.get('format_id')}, ext: {info.get('ext')}")
-                    
+
                     return {
                         'url': stream_url,
                         'format_id': info.get('format_id'),
@@ -279,7 +279,7 @@ class AudioStreamingService:
                         'title': info.get('title'),
                         'strategy': strategy_name
                     }
-                
+
                 # Try to extract from formats manually
                 formats = info.get('formats', [])
                 if formats:
@@ -296,14 +296,40 @@ class AudioStreamingService:
                                 'title': info.get('title'),
                                 'strategy': strategy_name
                             }
-                
+
                 raise Exception("No stream URL found in any format")
-                
+
         except yt_dlp.DownloadError as e:
-            if "Requested format is not available" in str(e):
-                # Try to get ANY available format
+            err_msg = str(e)
+
+            # Check for YouTube protection/signature/PO Token errors
+            if (
+                "unable to extract player version" in err_msg or
+                "No PO Token provided" in err_msg or
+                "Failed to extract any player response" in err_msg or
+                "Signature extraction failed" in err_msg or
+                "Failed to parse JSON" in err_msg or
+                "Only images are available for download" in err_msg
+            ):
+                logger.error(f"[AudioStream] YT-dlp extraction blocked by YouTube protections: {err_msg}")
+                # Return structured error for UI to handle gracefully
+                return {
+                    'error': 'YOUTUBE_PROTECTION',
+                    'error_message': (
+                        'This audio is temporarily protected by YouTube '
+                        'and cannot be streamed with current yt-dlp. '
+                        'Please try again after a future yt-dlp update.'
+                    ),
+                    'strategy': strategy_name,
+                    'technical_details': err_msg[:200]  # Truncate for safety
+                }
+
+            # Legacy fallback for format issues
+            if "Requested format is not available" in err_msg:
                 logger.warning(f"[AudioStream] {strategy_name}: Format not available, trying list-formats approach")
                 return await self._try_any_format(url, strategy_name)
+
+            # Re-raise other download errors
             raise e
     
     async def _try_any_format(self, url: str, strategy_name: str) -> Optional[Dict[str, Any]]:
