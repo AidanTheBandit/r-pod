@@ -179,8 +179,8 @@
 }
 
 .rating-btn {
-  background: none;
-  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.2);
   padding: 2vw;
   border-radius: 50%;
   display: flex;
@@ -191,14 +191,18 @@
   position: relative;
   min-width: 12vw;
   min-height: 12vw;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .rating-btn:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .rating-btn:active {
   transform: scale(0.95);
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .rating-btn:disabled {
@@ -215,8 +219,8 @@
   position: absolute;
   width: 4vw;
   height: 4vw;
-  border: 1px solid #ccc;
-  border-top: 1px solid #666;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-top: 1px solid rgba(255, 255, 255, 0.8);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -227,18 +231,24 @@
 }
 
 .like-btn.active {
+  background: rgba(255, 71, 87, 0.2);
+  border-color: #ff4757;
   color: #ff4757;
 }
 
 .like-btn:hover:not(.active) {
+  border-color: rgba(255, 71, 87, 0.6);
   color: #ff4757;
 }
 
 .dislike-btn.active {
+  background: rgba(55, 66, 250, 0.2);
+  border-color: #3742fa;
   color: #3742fa;
 }
 
 .dislike-btn:hover:not(.active) {
+  border-color: rgba(55, 66, 250, 0.6);
   color: #3742fa;
 }
 
@@ -265,6 +275,16 @@
   .track-artist {
     font-size: 4vw;
   }
+  
+  .rating-controls {
+    gap: 5vw;
+  }
+  
+  .rating-btn {
+    min-width: 14vw;
+    min-height: 14vw;
+    padding: 2.5vw;
+  }
 }
 
 /* Larger screens */
@@ -286,6 +306,16 @@
   .track-artist {
     font-size: 3.8vw;
   }
+  
+  .rating-controls {
+    gap: 3vw;
+  }
+  
+  .rating-btn {
+    min-width: 10vw;
+    min-height: 10vw;
+    padding: 1.5vw;
+  }
 }
 
 @media (min-width: 481px) {
@@ -304,6 +334,16 @@
   
   .track-artist {
     font-size: 3.5vw;
+  }
+  
+  .rating-controls {
+    gap: 2vw;
+  }
+  
+  .rating-btn {
+    min-width: 8vw;
+    min-height: 8vw;
+    padding: 1vw;
   }
 }
 
@@ -363,4 +403,48 @@ body.rabbit .track-title {
 
 body.rabbit .track-artist {
   color: #ccc;
+}
+
+/* Rating Controls Theme Overrides */
+body.ipod .rating-btn {
+  background: rgba(0, 0, 0, 0.05);
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  color: rgba(0, 0, 0, 0.6);
+}
+
+body.ipod .rating-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+  border-color: rgba(0, 0, 0, 0.2);
+  color: rgba(0, 0, 0, 0.8);
+}
+
+body.ipod .rating-btn:active {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+body.ipod .rating-btn.loading::after {
+  border-color: rgba(0, 0, 0, 0.2);
+  border-top-color: rgba(0, 0, 0, 0.6);
+}
+
+body.ipod .like-btn.active {
+  background: rgba(255, 71, 87, 0.1);
+  border-color: #ff4757;
+  color: #ff4757;
+}
+
+body.ipod .like-btn:hover:not(.active) {
+  border-color: rgba(255, 71, 87, 0.4);
+  color: #ff4757;
+}
+
+body.ipod .dislike-btn.active {
+  background: rgba(55, 66, 250, 0.1);
+  border-color: #3742fa;
+  color: #3742fa;
+}
+
+body.ipod .dislike-btn:hover:not(.active) {
+  border-color: rgba(55, 66, 250, 0.4);
+  color: #3742fa;
 }
