@@ -1,6 +1,23 @@
 """
 Audio Streaming Service v2.0
 Handles YouTube audio streaming using yt-dlp with cookie authentication
+
+CURRENT STATUS (October 2025):
+- yt-dlp is currently broken due to YouTube's new extraction protections
+- Most public Piped instances are down/unreliable
+- Service gracefully handles these failures with user-friendly error messages
+
+IMPLEMENTED FEATURES:
+- Multiple yt-dlp extraction strategies with different client configurations
+- YouTube protection error detection and graceful handling
+- Piped API fallback (currently limited by instance availability)
+- Cookie-based authentication for YouTube Music
+- Comprehensive error logging and user feedback
+
+FUTURE IMPROVEMENTS:
+- Self-hosted Piped instance for reliable fallback
+- Alternative streaming services (Invidious, etc.)
+- Automatic yt-dlp updates when YouTube protections are bypassed
 """
 import logging
 from typing import Dict, Any, Optional
@@ -392,60 +409,93 @@ class AudioStreamingService:
             return None
     
     async def _try_piped_fallback(self, video_id: str) -> Optional[Dict[str, Any]]:
-        """Last resort: Use Piped API as fallback when yt-dlp fails"""
+        """Last resort: Use Piped API as fallback when yt-dlp fails
+        
+        NOTE: Most public Piped instances are currently unreliable or down.
+        This fallback is kept for when instances become available again.
+        For production use, consider self-hosting a Piped instance.
+        """
         try:
-            # Use a reliable Piped instance
+            # Known Piped instances (many are currently down/unreliable as of Oct 2025)
             piped_instances = [
-                "https://pipedapi.kavin.rocks",
-                "https://pipedapi.adminforge.de",
-                "https://pipedapi.us.projectsegfau.lt",
-                "https://api-piped.mha.fi"
+                "https://pipedapi.kavin.rocks",  # Official/main instance
+                # Other instances often return 301, 404, 502, 522, 525, or SSL errors
+                # "https://pipedapi.libreho.st",  # Often down
+                # "https://pipedapi.r4fo.com",     # Often 404
+                # Add more as they become available and tested
             ]
+            
+            logger.info(f"[AudioStream] Trying Piped fallback for {video_id} (Note: Most public instances currently down)")
             
             for piped_url in piped_instances:
                 try:
                     api_url = f"{piped_url}/streams/{video_id}"
-                    logger.info(f"[AudioStream] Trying Piped instance: {piped_url}")
+                    logger.debug(f"[AudioStream] Testing Piped instance: {piped_url}")
                     
-                    async with httpx.AsyncClient(timeout=10.0) as client:
+                    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
                         response = await client.get(api_url)
                         
+                        # Handle redirects (some instances redirect to HTTPS or new URLs)
+                        if response.status_code in (301, 302, 307, 308):
+                            redirect_url = response.headers.get('Location')
+                            if redirect_url:
+                                logger.debug(f"[AudioStream] Following redirect: {redirect_url}")
+                                if redirect_url.startswith('/'):
+                                    redirect_url = f"{piped_url}{redirect_url}"
+                                response = await client.get(redirect_url)
+                        
                         if response.status_code == 200:
-                            data = response.json()
+                            try:
+                                data = response.json()
+                            except Exception as e:
+                                logger.debug(f"[AudioStream] Failed to parse JSON from {piped_url}: {e}")
+                                continue
+                            
+                            # Validate we got actual video data
+                            if not data.get('title') or not data.get('duration'):
+                                logger.debug(f"[AudioStream] Invalid video data from {piped_url}")
+                                continue
                             
                             # Extract audio streams
                             audio_streams = data.get('audioStreams', [])
                             if not audio_streams:
-                                logger.warning(f"[AudioStream] No audio streams from Piped: {piped_url}")
+                                logger.debug(f"[AudioStream] No audio streams from {piped_url}")
                                 continue
                             
                             # Find the best quality audio stream
-                            best_audio = max(audio_streams, key=lambda x: x.get('bitrate', 0))
+                            best_audio = max(audio_streams, key=lambda x: x.get('bitrate', 0) or 0)
                             
-                            logger.info(f"[AudioStream] ✓ Piped fallback success - format: {best_audio.get('format')}, bitrate: {best_audio.get('bitrate')}")
-                            
-                            return {
-                                'url': best_audio['url'],
-                                'format_id': best_audio.get('format', 'piped'),
-                                'ext': best_audio.get('codec', 'unknown'),
-                                'bitrate': best_audio.get('bitrate'),
-                                'duration': data.get('duration'),
-                                'title': data.get('title'),
-                                'strategy': f'piped_fallback ({piped_url})'
-                            }
+                            if best_audio and best_audio.get('url'):
+                                logger.info(f"[AudioStream] ✓ Piped fallback success from {piped_url} - bitrate: {best_audio.get('bitrate')}, codec: {best_audio.get('codec')}")
+                                
+                                return {
+                                    'url': best_audio['url'],
+                                    'format_id': best_audio.get('format', 'piped'),
+                                    'ext': best_audio.get('codec', 'unknown'),
+                                    'bitrate': best_audio.get('bitrate'),
+                                    'duration': data.get('duration'),
+                                    'title': data.get('title'),
+                                    'strategy': f'piped_fallback ({piped_url})'
+                                }
+                            else:
+                                logger.debug(f"[AudioStream] No valid audio stream found from {piped_url}")
+                        
                         else:
-                            logger.warning(f"[AudioStream] Piped instance {piped_url} returned status {response.status_code}")
-                            continue
+                            logger.debug(f"[AudioStream] Piped instance {piped_url} returned HTTP {response.status_code}")
                             
+                except httpx.TimeoutException:
+                    logger.debug(f"[AudioStream] Timeout connecting to {piped_url}")
+                except httpx.ConnectError:
+                    logger.debug(f"[AudioStream] Connection failed to {piped_url}")
                 except Exception as e:
-                    logger.debug(f"[AudioStream] Piped instance {piped_url} failed: {e}")
+                    logger.debug(f"[AudioStream] Piped instance {piped_url} error: {e}")
                     continue
             
-            logger.error("[AudioStream] All Piped instances failed")
+            logger.warning("[AudioStream] Piped fallback: All tested instances failed or returned no audio streams. This is expected as most public Piped instances are currently down.")
             return None
             
         except Exception as e:
-            logger.error(f"[AudioStream] Piped fallback failed: {e}")
+            logger.error(f"[AudioStream] Piped fallback failed with exception: {e}")
             return None
     
     def __del__(self):
