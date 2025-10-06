@@ -65,12 +65,11 @@ function NowPlayingView() {
   const progressPercentage = duration ? Math.max(0, Math.min(100, (currentTime / duration) * 100)) : 0
   
   // Calculate strokeDashoffset for progress bar
-  // Approximate perimeter of rounded rectangle: 2*(width + height - 2*radius) - 8*radius (for corners)
-  // For our 94x94 rect with 8px radius: approximately 372 units
-  // Start from bottom center (offset by ~93 to position at bottom center)
-  // As progress increases, dashoffset decreases (revealing more of the stroke)
-  const totalLength = 372
-  const startOffset = 93 // Offset to start from bottom center
+  // Perimeter of rounded rectangle: 4*78 + 4*(π*8/2) ≈ 312 + 50.26 = 362.26
+  // Start from bottom center: offset by ~220 to position at bottom center
+  // As progress increases, dashoffset decreases (revealing more of the stroke clockwise)
+  const totalLength = 362
+  const startOffset = 220 // Offset to start from bottom center
   const progressOffset = totalLength * (1 - progressPercentage / 100)
 
   return (
