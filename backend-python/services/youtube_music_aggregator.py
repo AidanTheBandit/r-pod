@@ -1663,6 +1663,10 @@ class YouTubeMusicAggregator(BaseMusicService):
             elif track.get("thumbnail"):
                 thumbnail = track["thumbnail"]
             
+            # Fallback: construct YouTube thumbnail URL from video ID
+            if not thumbnail and video_id:
+                thumbnail = f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
+            
             return {
                 "id": f"ytm:{video_id}",
                 "title": track.get("title", "Unknown Title"),
