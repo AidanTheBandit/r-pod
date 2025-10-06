@@ -85,14 +85,30 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware
+# CORS middleware - Extra permissive for Android WebView
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
     allow_headers=["*"],
+    expose_headers=["Content-Length", "Content-Range", "Accept-Ranges"],
 )
+
+# Additional CORS headers for problematic clients (like Android WebView)
+@app.middleware("http")
+async def add_cors_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, HEAD"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    response.headers["Access-Control-Expose-Headers"] = "Content-Length, Content-Range, Accept-Ranges"
+    response.headers["Access-Control-Max-Age"] = "3600"
+    # Additional headers for WebView compatibility
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "ALLOWALL"  # Allow iframes if needed
+    return response
 
 
 # Authentication dependency
@@ -208,17 +224,22 @@ async def health_check():
             "hasYouTubeMusicCookie": bool(settings.youtube_music_cookie),
             "hasSpotifyConfig": bool(settings.spotify_client_id),
         },
-        "sessionDetails": [
-            {
-                "id": sid,
-                "services": list(sess["services"].keys()),
-                "created": sess["created"].isoformat(),
-                "lastAccess": sess["lastAccess"].isoformat(),
-            }
-            for sid, sess in sessions.items()
-        ]
+        "cors_test": "This endpoint should be accessible from any origin"
     }
     return health
+
+@app.get("/cors-test")
+async def cors_test():
+    """Simple CORS test endpoint - no authentication required"""
+    return {
+        "message": "CORS test successful",
+        "timestamp": datetime.now().isoformat(),
+        "headers": {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+            "Access-Control-Allow-Headers": "*",
+        }
+    }
 
 
 @app.post("/api/services/connect")

@@ -13,6 +13,7 @@ export default defineConfig({
     port: 3450,
     host: true,
     allowedHosts: true, // Allow all hosts
+    https: false, // Let the reverse proxy handle HTTPS
   },
   build: {
     outDir: 'dist',

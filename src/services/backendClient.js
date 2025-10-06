@@ -31,9 +31,12 @@ const initializeClient = () => {
     baseURL: BACKEND_URL,
     headers: {
       'x-server-password': BACKEND_PASSWORD,
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest' // Helps with some WebView CORS issues
     },
-    timeout: 30000 // 30 second timeout
+    timeout: 30000, // 30 second timeout
+    withCredentials: false // Explicitly disable credentials for CORS
   })
 
   // Add request interceptor for session ID
