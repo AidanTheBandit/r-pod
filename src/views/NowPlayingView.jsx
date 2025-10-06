@@ -93,7 +93,7 @@ function NowPlayingView() {
               />
               {/* Progress border - starts from bottom center, moves clockwise */}
               <path
-                d="M 50 97 L 89 97 A 8 8 0 0 1 97 89 L 97 11 A 8 8 0 0 1 89 3 L 11 3 A 8 8 0 0 1 3 11 L 3 89 A 8 8 0 0 1 11 97 L 50 97 Z"
+                d="M 50 97 L 89 97 A 8 8 0 0 0 97 89 L 97 11 A 8 8 0 0 0 89 3 L 11 3 A 8 8 0 0 0 3 11 L 3 89 A 8 8 0 0 0 11 97 L 50 97 Z"
                 fill="none"
                 stroke="#2196F3"
                 strokeWidth="3"
