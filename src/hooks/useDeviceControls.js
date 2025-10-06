@@ -40,9 +40,9 @@ export function useDeviceControls(sdk) {
     let scrollHoldTimer = null
     let isSeekMode = false
     
-    // Debounce for list navigation
-    let scrollDebounceTimer = null
-    const SCROLL_DEBOUNCE_MS = 150 // Prevent rapid scrolling
+    // Debounce for PTT button
+    let pttDebounceTimer = null
+    const PTT_DEBOUNCE_MS = 300 // Prevent double clicks
     
     // Handle scroll wheel events
     const handleScrollWheel = (data) => {
@@ -91,7 +91,13 @@ export function useDeviceControls(sdk) {
         return
       }
       
-      // For list views, move selection with debouncing
+      // For list views, move selection with throttling and debouncing
+      const now = Date.now()
+      if (now - lastScrollTime < SCROLL_THROTTLE_MS) {
+        return // Throttle: ignore if too soon
+      }
+      lastScrollTime = now
+      
       if (scrollDebounceTimer) {
         clearTimeout(scrollDebounceTimer)
       }
@@ -114,6 +120,12 @@ export function useDeviceControls(sdk) {
     
     // Handle PTT (side button) press
     const handleSideButton = () => {
+      if (pttDebounceTimer) return // Debounce
+      
+      pttDebounceTimer = setTimeout(() => {
+        pttDebounceTimer = null
+      }, PTT_DEBOUNCE_MS)
+      
       console.log('PTT pressed')
       
       // In Now Playing view, PTT = play/pause
@@ -146,6 +158,10 @@ export function useDeviceControls(sdk) {
       
       if (scrollDebounceTimer) {
         clearTimeout(scrollDebounceTimer)
+      }
+      
+      if (pttDebounceTimer) {
+        clearTimeout(pttDebounceTimer)
       }
     }
   }, [
