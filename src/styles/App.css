@@ -146,3 +146,32 @@
   color: #999;
   margin-top: 1vh;
 }
+
+/* ===========================
+   THEME OVERRIDES
+   =========================== */
+
+/* Rabbit Theme Overrides */
+body.rabbit .ipod-app {
+  background: #000;
+}
+
+body.rabbit .view-container {
+  background: #000;
+}
+
+body.rabbit .loading-container {
+  color: #fff;
+}
+
+body.rabbit .error-container {
+  color: #FF4D08;
+}
+
+body.rabbit .empty-container {
+  color: #fff;
+}
+
+body.rabbit .empty-subtext {
+  color: #ccc;
+}

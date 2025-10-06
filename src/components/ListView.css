@@ -114,3 +114,45 @@
 .list-item.selected .item-value {
   color: rgba(255, 255, 255, 0.9);
 }
+
+/* ===========================
+   THEME OVERRIDES
+   =========================== */
+
+/* Rabbit Theme Overrides */
+body.rabbit .list-item {
+  border-bottom: 0.35vh solid #333;
+  background: #000;
+  color: #fff;
+}
+
+body.rabbit .list-item.loading {
+  background: #111;
+}
+
+body.rabbit .list-item.selected {
+  background: #FF4D08;
+  color: #000;
+}
+
+body.rabbit .list-item:active {
+  background: #e64a07;
+}
+
+body.rabbit .item-subtitle {
+  color: #ccc;
+}
+
+body.rabbit .item-arrow {
+  color: #666;
+}
+
+body.rabbit .item-value {
+  color: #ccc;
+}
+
+body.rabbit .list-item.selected .item-subtitle,
+body.rabbit .list-item.selected .item-arrow,
+body.rabbit .list-item.selected .item-value {
+  color: rgba(0, 0, 0, 0.8);
+}

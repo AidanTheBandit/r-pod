@@ -15,3 +15,17 @@
   font-weight: 600;
   color: #333;
 }
+
+/* ===========================
+   THEME OVERRIDES
+   =========================== */
+
+/* Rabbit Theme Overrides */
+body.rabbit .view-header {
+  background: #000;
+  border-bottom: 1px solid #333;
+}
+
+body.rabbit .view-header h2 {
+  color: #fff;
+}

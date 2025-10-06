@@ -4,6 +4,14 @@
  * Hardware-accelerated for smooth scroll wheel & PTT interactions
  */
 
+/* Font loading */
+@font-face {
+  font-family: 'PowerGrotesk';
+  src: url('/PowerGrotesk-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
 /* ===========================
    BASE RESET & LAYOUT
    =========================== */
@@ -162,4 +170,42 @@ html, body {
 :focus-visible {
   outline: 0.5vh solid #FE5F00;
   outline-offset: 0.5vh;
+}
+
+/* ===========================
+   THEMES
+   =========================== */
+
+/* iPod Theme (default) */
+body.ipod {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
+body.ipod #root {
+  background: linear-gradient(180deg, #e8f0f7 0%, #c8d8e8 100%);
+}
+
+/* Rabbit Theme */
+body.rabbit {
+  background: #000;
+  font-family: 'PowerGrotesk', -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  color: #fff;
+  text-transform: lowercase;
+}
+
+body.rabbit #root {
+  background: #000;
+}
+
+/* Content text should remain normal case */
+body.rabbit .item-text,
+body.rabbit .item-subtitle,
+body.rabbit .track-title,
+body.rabbit .track-artist,
+body.rabbit .view-header h2,
+body.rabbit .playlist-info,
+body.rabbit .album-info,
+body.rabbit .artist-info {
+  text-transform: none;
 }

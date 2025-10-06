@@ -47,3 +47,28 @@
   text-align: center;
   padding: 0 5vw;
 }
+
+/* ===========================
+   THEME OVERRIDES
+   =========================== */
+
+/* Rabbit Theme Overrides */
+body.rabbit .search-input-container {
+  background: #000;
+  border-bottom: 0.35vh solid #333;
+}
+
+body.rabbit .search-input {
+  background: #111;
+  border: 0.35vh solid #666;
+  color: #fff;
+}
+
+body.rabbit .search-input:focus {
+  border-color: #FF4D08;
+  background: #000;
+}
+
+body.rabbit .search-empty {
+  color: #ccc;
+}

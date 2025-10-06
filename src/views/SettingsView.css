@@ -157,3 +157,151 @@
 .info-box li {
   margin-bottom: 1vh;
 }
+
+/* Theme Options */
+.theme-options {
+  display: flex;
+  gap: 4vw;
+  justify-content: center;
+}
+
+.theme-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2vw;
+  padding: 3vw;
+  border: 0.35vh solid #ccc;
+  border-radius: 2vw;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-width: 25vw;
+}
+
+.theme-btn.active {
+  border-color: #5a9fd4;
+  background: #e3f2fd;
+}
+
+.theme-btn:hover {
+  transform: scale(1.02);
+}
+
+.theme-preview {
+  width: 15vw;
+  height: 15vw;
+  border-radius: 1vw;
+  position: relative;
+  overflow: hidden;
+}
+
+.ipod-preview .preview-bg {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.rabbit-preview .preview-bg {
+  background: #000;
+}
+
+.ipod-preview .preview-accent,
+.rabbit-preview .preview-accent {
+  position: absolute;
+  top: 2vw;
+  left: 2vw;
+  width: 4vw;
+  height: 4vw;
+  border-radius: 50%;
+}
+
+.ipod-preview .preview-accent {
+  background: #0066cc;
+}
+
+.rabbit-preview .preview-accent {
+  background: #FF4D08;
+}
+
+.theme-btn span {
+  font-size: 4vw;
+  font-weight: 600;
+  color: #333;
+}
+
+.theme-btn small {
+  font-size: 3vw;
+  color: #666;
+}
+
+/* ===========================
+   THEME OVERRIDES
+   =========================== */
+
+/* Rabbit Theme Overrides */
+body.rabbit .settings-header {
+  background: #000;
+  border-bottom: 0.35vh solid #333;
+}
+
+body.rabbit .settings-description {
+  color: #ccc;
+}
+
+body.rabbit .service-config {
+  background: #000;
+}
+
+body.rabbit .config-header {
+  background: #000;
+  border-bottom: 0.35vh solid #333;
+}
+
+body.rabbit .back-btn {
+  color: #FF4D08;
+}
+
+body.rabbit .config-header h2 {
+  color: #fff;
+}
+
+body.rabbit .form-group label {
+  color: #fff;
+}
+
+body.rabbit .form-group input[type="text"],
+body.rabbit .form-group input[type="password"],
+body.rabbit .form-group input[type="url"] {
+  background: #111;
+  border: 0.35vh solid #666;
+  color: #fff;
+}
+
+body.rabbit .form-group input[type="text"]:focus,
+body.rabbit .form-group input[type="password"]:focus,
+body.rabbit .form-group input[type="url"]:focus {
+  border-color: #FF4D08;
+}
+
+body.rabbit .connect-btn {
+  background: #FF4D08;
+  color: #000;
+}
+
+body.rabbit .connect-btn.secondary {
+  background: #333;
+  color: #fff;
+  border: 0.35vh solid #666;
+}
+
+body.rabbit .info-box {
+  background: #333;
+  border-left: 0.8vw solid #FF4D08;
+}
+
+body.rabbit .info-box strong {
+  color: #FF4D08;
+}
+
+body.rabbit .info-box ul {
+  color: #ccc;
+}

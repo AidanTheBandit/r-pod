@@ -248,3 +248,33 @@
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
 }
+
+/* ===========================
+   THEME OVERRIDES
+   =========================== */
+
+/* Rabbit Theme Overrides */
+body.rabbit .now-playing-view,
+body.rabbit .now-playing-container {
+  background: #000;
+}
+
+body.rabbit .now-playing-empty {
+  color: #ccc;
+}
+
+body.rabbit .now-playing-empty .empty-text {
+  color: #fff;
+}
+
+body.rabbit .album-placeholder {
+  background: linear-gradient(135deg, #333 0%, #666 100%);
+}
+
+body.rabbit .track-title {
+  color: #fff;
+}
+
+body.rabbit .track-artist {
+  color: #ccc;
+}

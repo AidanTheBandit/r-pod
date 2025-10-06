@@ -76,3 +76,44 @@
     transform: rotate(360deg);
   }
 }
+
+/* ===========================
+   THEME OVERRIDES
+   =========================== */
+
+/* iPod Theme Overrides */
+body.ipod .artist-details-view {
+  background: linear-gradient(180deg, #f8f8f8 0%, #fff 100%);
+}
+
+body.ipod .artist-details-view .view-header {
+  background: rgba(0, 0, 0, 0.02);
+  border-bottom: 1px solid #ccc;
+}
+
+body.ipod .artist-details-view .view-header h2 {
+  color: #000;
+}
+
+body.ipod .artist-details-view .artist-info {
+  color: #666;
+}
+
+body.ipod .artist-details-view .loading-container,
+body.ipod .artist-details-view .error-container,
+body.ipod .artist-details-view .empty-container {
+  color: #666;
+}
+
+body.ipod .artist-details-view .error-icon {
+  border-color: #f44336;
+  color: #f44336;
+}
+
+body.ipod .artist-details-view .error-message {
+  color: #f44336;
+}
+
+body.ipod .artist-details-view .empty-text {
+  color: #666;
+}

@@ -61,3 +61,26 @@
 .battery-icon {
   font-size: 4vw;
 }
+
+/* ===========================
+   THEME OVERRIDES
+   =========================== */
+
+/* Rabbit Theme Overrides */
+body.rabbit .ipod-header {
+  background: linear-gradient(180deg, #333 0%, #000 100%);
+  border-bottom: 0.35vh solid #666;
+}
+
+body.rabbit .header-left,
+body.rabbit .header-right {
+  color: #fff;
+}
+
+body.rabbit .back-indicator {
+  color: #FF4D08;
+}
+
+body.rabbit .header-title {
+  color: #fff;
+}

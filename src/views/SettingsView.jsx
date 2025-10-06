@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { backendAPI, updateBackendConfig } from '../services/backendClient'
 import { useServiceStore } from '../store/serviceStore'
+import { useThemeStore } from '../store/themeStore'
 import ListView from '../components/ListView'
 import './SettingsView.css'
 
 function SettingsView() {
   const { toggleService, services } = useServiceStore()
+  const { theme, setTheme } = useThemeStore()
   const [selectedService, setSelectedService] = useState(null)
   const [connecting, setConnecting] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState({})
@@ -120,6 +122,11 @@ function SettingsView() {
 
   // Main settings menu
   const settingsItems = [
+    {
+      id: 'theme',
+      title: 'Theme',
+      subtitle: theme === 'ipod' ? 'iPod (White & Blue)' : 'Rabbit (Black & Orange)',
+    },
     {
       id: 'backend',
       title: 'Backend Server',
@@ -266,6 +273,50 @@ function SettingsView() {
   // Render service configuration form
   const renderServiceConfig = () => {
     if (!selectedService) return null
+
+    // Handle theme configuration
+    if (selectedService === 'theme') {
+      return (
+        <div className="service-config">
+          <div className="config-header">
+            <button onClick={() => setSelectedService(null)} className="back-btn">
+              ‹ Back
+            </button>
+            <h2>Theme Settings</h2>
+          </div>
+
+          <div className="config-form">
+            <div className="form-group">
+              <label>Choose Theme</label>
+              <div className="theme-options">
+                <button
+                  className={`theme-btn ${theme === 'ipod' ? 'active' : ''}`}
+                  onClick={() => setTheme('ipod')}
+                >
+                  <div className="theme-preview ipod-preview">
+                    <div className="preview-bg"></div>
+                    <div className="preview-accent"></div>
+                  </div>
+                  <span>iPod</span>
+                  <small>White & Blue</small>
+                </button>
+                <button
+                  className={`theme-btn ${theme === 'rabbit' ? 'active' : ''}`}
+                  onClick={() => setTheme('rabbit')}
+                >
+                  <div className="theme-preview rabbit-preview">
+                    <div className="preview-bg"></div>
+                    <div className="preview-accent"></div>
+                  </div>
+                  <span>Rabbit</span>
+                  <small>Black & Orange</small>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    }
 
     // Handle backend configuration separately
     if (selectedService === 'backend') {

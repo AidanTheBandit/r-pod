@@ -35,3 +35,29 @@
   color: white;
   border-color: #007bff;
 }
+
+/* ===========================
+   THEME OVERRIDES
+   =========================== */
+
+/* Rabbit Theme Overrides */
+body.rabbit .view-header {
+  background: #000;
+  border-bottom: 1px solid #333;
+}
+
+body.rabbit .view-header h2 {
+  color: #fff;
+}
+
+body.rabbit .control-btn {
+  border: 1px solid #666;
+  background: #000;
+  color: #fff;
+}
+
+body.rabbit .control-btn.active {
+  background: #FF4D08;
+  color: #000;
+  border-color: #FF4D08;
+}

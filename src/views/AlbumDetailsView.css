@@ -109,3 +109,69 @@
     transform: rotate(360deg);
   }
 }
+
+/* ===========================
+   THEME OVERRIDES
+   =========================== */
+
+/* iPod Theme Overrides */
+body.ipod .album-details-view {
+  background: linear-gradient(180deg, #f8f8f8 0%, #fff 100%);
+}
+
+body.ipod .album-details-view .view-header {
+  background: rgba(0, 0, 0, 0.02);
+  border-bottom: 1px solid #ccc;
+}
+
+body.ipod .album-details-view .view-header h2 {
+  color: #000;
+}
+
+body.ipod .album-details-view .album-info {
+  color: #666;
+}
+
+body.ipod .album-details-view .album-info span:not(:last-child)::after {
+  color: #ccc;
+}
+
+body.ipod .album-details-view .album-actions {
+  border-bottom: 1px solid #ccc;
+}
+
+body.ipod .album-details-view .play-all-btn {
+  background: #007bff;
+}
+
+body.ipod .album-details-view .play-all-btn:hover {
+  background: #0056b3;
+}
+
+body.ipod .album-details-view .loading-container,
+body.ipod .album-details-view .error-container,
+body.ipod .album-details-view .empty-container {
+  color: #666;
+}
+
+body.ipod .album-details-view .error-icon {
+  border-color: #f44336;
+  color: #f44336;
+}
+
+body.ipod .album-details-view .error-message {
+  color: #f44336;
+}
+
+body.ipod .album-details-view .empty-text {
+  color: #666;
+}
+
+/* Rabbit Theme Overrides */
+body.rabbit .album-details-view .play-all-btn {
+  background: #FF4D08;
+}
+
+body.rabbit .album-details-view .play-all-btn:hover {
+  background: #e64a07;
+}

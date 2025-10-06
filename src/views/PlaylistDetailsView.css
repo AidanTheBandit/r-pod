@@ -120,3 +120,72 @@
   font-size: 0.9rem;
   color: #999;
 }
+
+/* ===========================
+   THEME OVERRIDES
+   =========================== */
+
+/* iPod Theme Overrides */
+body.ipod .playlist-details-view .view-header {
+  background: linear-gradient(135deg, #f8f8f8 0%, #e8f0f7 100%);
+  border-bottom: 1px solid #ccc;
+}
+
+body.ipod .playlist-details-view .view-header h2 {
+  color: #000;
+}
+
+body.ipod .playlist-info span {
+  color: #666;
+}
+
+body.ipod .playlist-info p {
+  color: #999;
+}
+
+body.ipod .playlist-actions {
+  border-bottom: 1px solid #ccc;
+}
+
+body.ipod .play-all-btn {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+}
+
+body.ipod .play-all-btn:hover {
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+body.ipod .playlist-details-view .loading-spinner {
+  border-top: 3px solid #007bff;
+}
+
+body.ipod .playlist-details-view .error-icon {
+  background: #f44336;
+}
+
+body.ipod .playlist-details-view .error-message,
+body.ipod .playlist-details-view .empty-text,
+body.ipod .playlist-details-view .empty-subtext {
+  color: #666;
+}
+
+body.ipod .playlist-details-view .empty-subtext {
+  color: #999;
+}
+
+/* Rabbit Theme Overrides */
+body.rabbit .play-all-btn {
+  background: linear-gradient(135deg, #FF4D08 0%, #e64a07 100%);
+}
+
+body.rabbit .play-all-btn:hover {
+  box-shadow: 0 4px 12px rgba(255, 77, 8, 0.3);
+}
+
+body.rabbit .playlist-details-view .loading-spinner {
+  border-top: 3px solid #FF4D08;
+}
+
+body.rabbit .playlist-details-view .error-icon {
+  background: #FF4D08;
+}

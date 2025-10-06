@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useNavigationStore } from './store/navigationStore'
 import { usePlayerStore } from './store/playerStore'
 import { useServiceStore } from './store/serviceStore'
+import { useThemeStore } from './store/themeStore'
 import { backendAPI } from './services/backendClient'
 import { useDeviceControls } from './hooks/useDeviceControls'
 import { ui } from 'r1-create'
@@ -179,6 +180,7 @@ const LoadingFallback = () => (
 function AppContent({ sdk }) {
   const { currentView } = useNavigationStore()
   const { toggleService, services } = useServiceStore()
+  const { theme } = useThemeStore()
 
   // Initialize device controls
   useDeviceControls(sdk)
@@ -187,6 +189,11 @@ function AppContent({ sdk }) {
   useEffect(() => {
     ui.setupViewport()
   }, [])
+
+  // Apply theme to body
+  useEffect(() => {
+    document.body.className = theme
+  }, [theme])
 
   // Auto-connect YouTube Music on app startup
   useEffect(() => {
@@ -244,7 +251,7 @@ function AppContent({ sdk }) {
   }
 
   return (
-    <div className="ipod-app">
+    <div className={`ipod-app ${theme}`}>
       <Header />
       <div className="view-container">
         <ErrorBoundary>
