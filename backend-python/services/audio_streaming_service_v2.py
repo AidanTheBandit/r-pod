@@ -112,8 +112,15 @@ class AudioStreamingService:
             'cookiefile': self.cookie_file.name,
             'extract_flat': False,
             'ignoreerrors': False,
+            # Handle YouTube's new restrictions
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android_music', 'web_music'],
+                    'player_skip': ['js', 'configs'],
+                }
+            },
             'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
+                'User-Agent': 'Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36',
                 'Accept': '*/*',
                 'Accept-Language': 'en-US,en;q=0.9',
                 'Accept-Encoding': 'gzip, deflate, br',
@@ -151,8 +158,15 @@ class AudioStreamingService:
             'cookiefile': self.cookie_file.name,
             'extract_flat': False,
             'ignoreerrors': False,
+            # Handle YouTube's new restrictions
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android', 'web'],
+                    'player_skip': ['js', 'configs'],
+                }
+            },
             'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
+                'User-Agent': 'Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36',
                 'Accept': '*/*',
                 'Accept-Language': 'en-US,en;q=0.9',
                 'Accept-Encoding': 'gzip, deflate, br',
@@ -160,6 +174,9 @@ class AudioStreamingService:
                 'Sec-Fetch-Dest': 'empty',
                 'Sec-Fetch-Mode': 'cors',
                 'Sec-Fetch-Site': 'same-origin',
+                'DNT': '1',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
             },
         }
         
@@ -175,11 +192,21 @@ class AudioStreamingService:
             'extract_flat': False,
             'ignoreerrors': False,
             'age_limit': None,
+            # Handle YouTube's new restrictions
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android', 'web'],
+                    'player_skip': ['js', 'configs'],
+                }
+            },
             'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
+                'User-Agent': 'Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36',
                 'Accept': '*/*',
                 'Accept-Language': 'en-US,en;q=0.9',
                 'Accept-Encoding': 'gzip, deflate, br',
+                'DNT': '1',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
             },
         }
         
