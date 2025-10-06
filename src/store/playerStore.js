@@ -36,6 +36,8 @@ export const usePlayerStore = create((set, get) => ({
       currentIndex: index,
       isPlaying: true,
       error: null, // Clear any previous errors
+      duration: track.duration || 0, // Set duration from track data if available
+      currentTime: 0, // Reset current time
     })
 
     // Auto-play through audio element

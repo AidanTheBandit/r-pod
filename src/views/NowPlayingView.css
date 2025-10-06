@@ -92,7 +92,7 @@
 }
 
 .progress-border-path {
-  transition: stroke-dashoffset 0.3s linear;
+  transition: stroke-dashoffset 0.3s ease-out;
   transform-origin: center center;
   will-change: stroke-dashoffset;
 }
@@ -186,6 +186,46 @@
   
   .track-artist {
     font-size: 4vw;
+  }
+}
+
+/* Larger screens */
+@media (min-width: 241px) {
+  .album-artwork-wrapper {
+    max-width: 70vw;
+  }
+  
+  .album-artwork-frame {
+    width: 70vw;
+    height: 70vw;
+  }
+  
+  .track-title {
+    font-size: 4.5vw;
+    max-width: 90vw;
+  }
+  
+  .track-artist {
+    font-size: 3.8vw;
+  }
+}
+
+@media (min-width: 481px) {
+  .album-artwork-wrapper {
+    max-width: 60vw;
+  }
+  
+  .album-artwork-frame {
+    width: 60vw;
+    height: 60vw;
+  }
+  
+  .track-title {
+    font-size: 4vw;
+  }
+  
+  .track-artist {
+    font-size: 3.5vw;
   }
 }
 

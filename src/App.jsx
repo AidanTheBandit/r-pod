@@ -52,11 +52,27 @@ function BackgroundPlayer() {
     if (!audio) return
     
     const handleTimeUpdate = () => {
-      updateCurrentTime(audio.currentTime)
+      const newTime = audio.currentTime
+      updateCurrentTime(newTime)
     }
     
-    const handleDurationChange = () => {
-      setDuration(audio.duration)
+        const handleDurationChange = () => {
+      const newDuration = audio.duration
+      console.log('[Audio] Duration changed:', newDuration, 'Current time:', audio.currentTime)
+      if (newDuration && !isNaN(newDuration) && newDuration > 0) {
+        setDuration(newDuration)
+      }
+    }
+    
+    // Fallback: Check duration periodically for streaming audio
+    const checkDurationFallback = () => {
+      if (audio.duration && !isNaN(audio.duration) && audio.duration > 0) {
+        const currentDuration = get().duration
+        if (audio.duration !== currentDuration) {
+          console.log('[Audio] Duration fallback:', audio.duration)
+          setDuration(audio.duration)
+        }
+      }
     }
     
     const handleEnded = () => {
@@ -68,6 +84,9 @@ function BackgroundPlayer() {
       }
     }
     
+    // Periodic duration check for streaming audio
+    const durationCheckInterval = setInterval(checkDurationFallback, 1000)
+    
     audio.addEventListener('timeupdate', handleTimeUpdate)
     audio.addEventListener('durationchange', handleDurationChange)
     audio.addEventListener('ended', handleEnded)
@@ -76,6 +95,7 @@ function BackgroundPlayer() {
       audio.removeEventListener('timeupdate', handleTimeUpdate)
       audio.removeEventListener('durationchange', handleDurationChange)
       audio.removeEventListener('ended', handleEnded)
+      clearInterval(durationCheckInterval)
     }
   }, [updateCurrentTime, setDuration, playNext, repeat])
   
