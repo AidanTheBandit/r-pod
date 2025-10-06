@@ -40,6 +40,12 @@ export function useDeviceControls(sdk) {
     let scrollHoldTimer = null
     let isSeekMode = false
     
+    // Debounce for list navigation
+    let scrollDebounceTimer = null
+    let lastScrollTime = 0
+    const SCROLL_THROTTLE_MS = 200 // Throttle scroll events to prevent too many calls
+    const SCROLL_DEBOUNCE_MS = 150 // Additional debounce for final action
+    
     // Debounce for PTT button
     let pttDebounceTimer = null
     const PTT_DEBOUNCE_MS = 300 // Prevent double clicks
