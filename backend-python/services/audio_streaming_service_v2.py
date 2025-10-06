@@ -189,15 +189,18 @@ class AudioStreamingService:
     async def _try_basic_extraction(self, video_id: str) -> Optional[Dict[str, Any]]:
         """Try most basic extraction possible"""
         ydl_opts = {
-            'format': 'worst/best',
+            'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
             'quiet': False,  # Enable output to see what's happening
             'extract_flat': False,
             'ignoreerrors': True,
             'no_check_certificate': True,
         }
         
+        if self.cookie_file:
+            ydl_opts['cookiefile'] = self.cookie_file.name
+        
         url = f"https://www.youtube.com/watch?v={video_id}"
-        return await self._extract_with_opts(url, ydl_opts, "Basic extraction")
+        return await self._extract_with_opts(url, ydl_opts, "_try_basic_extraction")
     
     async def _extract_with_opts(self, url: str, ydl_opts: dict, strategy_name: str) -> Optional[Dict[str, Any]]:
         """Common extraction logic"""
