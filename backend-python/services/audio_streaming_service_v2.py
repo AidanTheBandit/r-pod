@@ -106,7 +106,7 @@ class AudioStreamingService:
             raise Exception("No cookie file available")
         
         ydl_opts = {
-            'format': 'bestaudio/best',
+            'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
             'quiet': True,
             'no_warnings': True,
             'cookiefile': self.cookie_file.name,
@@ -145,7 +145,7 @@ class AudioStreamingService:
             raise Exception("No cookie file available")
         
         ydl_opts = {
-            'format': 'bestaudio/best',
+            'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
             'quiet': True,
             'no_warnings': True,
             'cookiefile': self.cookie_file.name,
@@ -169,7 +169,7 @@ class AudioStreamingService:
     async def _try_youtube_url_no_auth(self, video_id: str) -> Optional[Dict[str, Any]]:
         """Try regular YouTube URL without authentication"""
         ydl_opts = {
-            'format': 'bestaudio/best',
+            'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
             'quiet': True,
             'no_warnings': True,
             'extract_flat': False,
