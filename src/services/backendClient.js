@@ -1,14 +1,46 @@
 import axios from 'axios'
 import Cookies from 'js-cookie'
 
-// Default configuration
-let BACKEND_URL = import.meta.env.VITE_BACKEND_URL || ''
-let BACKEND_PASSWORD = import.meta.env.VITE_BACKEND_PASSWORD || 'ytm-secure-2025-r1'
+// Load saved backend configuration from localStorage, fallback to env vars
+const loadBackendConfig = () => {
+  try {
+    const savedConfig = localStorage.getItem('backend-config')
+    if (savedConfig) {
+      const config = JSON.parse(savedConfig)
+      if (config.url && config.password) {
+        console.log('[BackendClient] Using saved backend config:', config.url)
+        return config
+      }
+    }
+  } catch (e) {
+    console.warn('[BackendClient] Failed to load saved backend config:', e)
+  }
+  
+  // Fallback to environment variables
+  return {
+    url: import.meta.env.VITE_BACKEND_URL || '',
+    password: import.meta.env.VITE_BACKEND_PASSWORD || 'ytm-secure-2025-r1'
+  }
+}
+
+// Initialize configuration
+let config = loadBackendConfig()
+let BACKEND_URL = config.url
+let BACKEND_PASSWORD = config.password
 
 // Allow dynamic configuration
 export const updateBackendConfig = (url, password) => {
   BACKEND_URL = url
   BACKEND_PASSWORD = password
+  
+  // Save to localStorage
+  try {
+    localStorage.setItem('backend-config', JSON.stringify({ url, password }))
+    console.log('[BackendClient] Saved backend config to localStorage')
+  } catch (e) {
+    console.warn('[BackendClient] Failed to save backend config:', e)
+  }
+  
   // Reinitialize the client with new config
   initializeClient()
 }

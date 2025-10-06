@@ -9,9 +9,22 @@ function SettingsView() {
   const [selectedService, setSelectedService] = useState(null)
   const [connecting, setConnecting] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState({})
-  const [backendConfig, setBackendConfig] = useState({
-    url: 'http://localhost:3001',
-    password: 'music-aggregator-2025'
+  const [backendConfig, setBackendConfig] = useState(() => {
+    // Try to load from localStorage first
+    try {
+      const savedConfig = localStorage.getItem('backend-config')
+      if (savedConfig) {
+        return JSON.parse(savedConfig)
+      }
+    } catch (e) {
+      console.error('Failed to parse saved backend config')
+    }
+    
+    // Fallback to environment variables or defaults
+    return {
+      url: import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001',
+      password: import.meta.env.VITE_BACKEND_PASSWORD || 'music-aggregator-2025'
+    }
   })
   const [backendStatus, setBackendStatus] = useState(null)
 
@@ -24,16 +37,10 @@ function SettingsView() {
     jellyfin: { serverUrl: '', apiKey: '', userId: '' }
   })
 
-  // Load backend config from localStorage on mount
+  // Load service configs and connection status on mount
   useEffect(() => {
-    const savedConfig = localStorage.getItem('backend-config')
-    if (savedConfig) {
-      try {
-        setBackendConfig(JSON.parse(savedConfig))
-      } catch (e) {
-        console.error('Failed to parse saved backend config')
-      }
-    }
+    // Ensure backend client is using the current config
+    updateBackendConfig(backendConfig.url, backendConfig.password)
 
     // Load service configs
     const savedServiceConfigs = localStorage.getItem('service-configs')
@@ -54,7 +61,7 @@ function SettingsView() {
         console.error('Failed to parse saved connection status')
       }
     }
-  }, [])
+  }, []) // Only run once on mount
 
   // Save backend config to localStorage
   const saveBackendConfig = (config) => {
