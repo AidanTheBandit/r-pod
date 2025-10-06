@@ -8,7 +8,8 @@ from typing import Dict, Any, List, Optional
 from contextlib import asynccontextmanager
 import asyncio
 
-from fastapi import FastAPI, HTTPException, Request, Query, Header, Response
+from fastapi import FastAPI, HTTPException, Request, Query, Header, Response, Depends
+from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse, Response
 from pydantic import BaseModel
@@ -218,6 +219,11 @@ async def root(request: Request):
     client_ip = request.client.host if request.client else "unknown"
     user_agent = request.headers.get("User-Agent", "unknown")
     logger.info(f"[Root] Request from {client_ip} - User-Agent: {user_agent}")
+    
+    # Check if this looks like a health check request (common monitoring patterns)
+    if "health" in user_agent.lower() or "monitor" in user_agent.lower() or "check" in user_agent.lower():
+        logger.info(f"[Root] Redirecting health check request to /health")
+        return RedirectResponse(url="/health", status_code=302)
     
     return {
         "message": "iPod Music Backend API",
