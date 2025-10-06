@@ -134,6 +134,7 @@
   flex-direction: column;
   gap: 1vw;
   flex-shrink: 0;
+  align-items: center;
 }
 
 .track-title {
@@ -169,26 +170,13 @@
    =========================================== */
 
 .rating-controls {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  transform: translateY(-50%);
-  pointer-events: none; /* Allow touch events to pass through to buttons */
-}
-
-.rating-controls .rating-btn {
-  pointer-events: auto; /* Re-enable pointer events for buttons */
-}
-
-.dislike-btn {
-  position: absolute;
-  left: 3vw;
-}
-
-.like-btn {
-  position: absolute;
-  right: 3vw;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-top: 3vw;
+  padding: 0 2vw;
+  flex-shrink: 0;
 }
 
 .rating-btn {
@@ -289,12 +277,9 @@
     font-size: 4vw;
   }
   
-  .dislike-btn {
-    left: 4vw;
-  }
-  
-  .like-btn {
-    right: 4vw;
+  .rating-controls {
+    margin-top: 4vw;
+    padding: 0 3vw;
   }
   
   .rating-btn {
@@ -324,12 +309,9 @@
     font-size: 3.8vw;
   }
   
-  .dislike-btn {
-    left: 3vw;
-  }
-  
-  .like-btn {
-    right: 3vw;
+  .rating-controls {
+    margin-top: 3vw;
+    padding: 0 2vw;
   }
   
   .rating-btn {
@@ -357,12 +339,9 @@
     font-size: 3.5vw;
   }
   
-  .dislike-btn {
-    left: 2vw;
-  }
-  
-  .like-btn {
-    right: 2vw;
+  .rating-controls {
+    margin-top: 2vw;
+    padding: 0 1vw;
   }
   
   .rating-btn {

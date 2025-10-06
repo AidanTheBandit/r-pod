@@ -155,33 +155,33 @@ function NowPlayingView() {
         <div className="track-info">
           <h1 className="track-title">{currentTrack.title}</h1>
           <h2 className="track-artist">{currentTrack.artist || 'Unknown Artist'}</h2>
-        </div>
-        
-        {/* Rating Controls */}
-        <div className="rating-controls">
-          <button
-            className={`rating-btn like-btn ${likeStatus === 'LIKE' ? 'active' : ''} ${ratingLoading ? 'loading' : ''}`}
-            onClick={() => handleRating('LIKE')}
-            disabled={ratingLoading}
-            title={likeStatus === 'LIKE' ? 'Remove like' : 'Like this song'}
-          >
-            <Heart 
-              size={24} 
-              weight={likeStatus === 'LIKE' ? 'fill' : 'regular'} 
-            />
-          </button>
           
-          <button
-            className={`rating-btn dislike-btn ${likeStatus === 'DISLIKE' ? 'active' : ''} ${ratingLoading ? 'loading' : ''}`}
-            onClick={() => handleRating('DISLIKE')}
-            disabled={ratingLoading}
-            title={likeStatus === 'DISLIKE' ? 'Remove dislike' : 'Dislike this song'}
-          >
-            <ThumbsDown 
-              size={24} 
-              weight={likeStatus === 'DISLIKE' ? 'fill' : 'regular'} 
-            />
-          </button>
+          {/* Rating Controls */}
+          <div className="rating-controls">
+            <button
+              className={`rating-btn dislike-btn ${likeStatus === 'DISLIKE' ? 'active' : ''} ${ratingLoading ? 'loading' : ''}`}
+              onClick={() => handleRating('DISLIKE')}
+              disabled={ratingLoading}
+              title={likeStatus === 'DISLIKE' ? 'Remove dislike' : 'Dislike this song'}
+            >
+              <ThumbsDown 
+                size={24} 
+                weight={likeStatus === 'DISLIKE' ? 'fill' : 'regular'} 
+              />
+            </button>
+            
+            <button
+              className={`rating-btn like-btn ${likeStatus === 'LIKE' ? 'active' : ''} ${ratingLoading ? 'loading' : ''}`}
+              onClick={() => handleRating('LIKE')}
+              disabled={ratingLoading}
+              title={likeStatus === 'LIKE' ? 'Remove like' : 'Like this song'}
+            >
+              <Heart 
+                size={24} 
+                weight={likeStatus === 'LIKE' ? 'fill' : 'regular'} 
+              />
+            </button>
+          </div>
         </div>
       </div>
     </div>
