@@ -12,6 +12,7 @@ import time
 import asyncio
 import random
 import json
+import concurrent.futures
 
 try:
     import yt_dlp
@@ -1700,24 +1701,20 @@ class YouTubeMusicAggregator(BaseMusicService):
             return None
     
     async def _prepare_stream_request(self, video_id: str) -> Optional[str]:
-        """Prepare fresh authentication for streaming"""
+        """Prepare fresh authentication for streaming - just return API endpoint since streaming service handles extraction"""
         try:
+            # Generate fresh authentication headers to update the session
             auth_headers = self._generate_fresh_sapisid_hash()
             
+            # Update the ytmusicapi session with fresh headers
             if hasattr(self.ytm, '_session') and self.ytm._session:
                 self.ytm._session.headers.update(auth_headers)
             
-            if YT_DLP_AVAILABLE:
-                async def get_url():
-                    return await self.get_stream_url_ytdlp(video_id)
-                
-                url = await self._retry_with_backoff(get_url)
-                if url:
-                    return url
-            
+            # Return the API endpoint - streaming service will handle yt-dlp extraction with our authentication
             return f"/api/stream/youtube/{video_id}"
+            
         except Exception as e:
-            logger.error(f"[YTM] Error preparing stream: {e}")
+            logger.error(f"[YTM] Error preparing stream request: {e}")
             return None
     
     def _get_best_thumbnail(self, thumbnails: List[Dict[str, Any]]) -> Optional[str]:

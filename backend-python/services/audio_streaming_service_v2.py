@@ -24,6 +24,7 @@ import yt_dlp
 import os
 import tempfile
 import httpx
+import concurrent.futures
 
 logger = logging.getLogger(__name__)
 
@@ -103,30 +104,80 @@ class AudioStreamingService:
         return None
 
     async def _try_youtube_music_authenticated(self, video_id: str) -> Optional[Dict[str, Any]]:
-        """Try using YouTube Music aggregator's authenticated streaming method"""
+        """Try using YouTube Music aggregator's authentication for yt-dlp"""
         if not self.youtube_music_aggregator:
             logger.debug("[AudioStream] No YouTube Music aggregator available")
             return None
 
         try:
-            # Use the new authenticated streaming method from the aggregator
-            stream_url = await self.youtube_music_aggregator._prepare_stream_request(video_id)
-            if stream_url and stream_url != f"/api/stream/youtube/{video_id}":
-                logger.info(f"[AudioStream] ✓ YouTube Music aggregator provided authenticated URL")
+            # Get fresh authentication headers from the aggregator
+            auth_headers = self.youtube_music_aggregator._generate_fresh_sapisid_hash()
+            
+            # Use yt-dlp with the aggregator's authentication
+            ydl_opts = {
+                'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
+                'quiet': True,
+                'no_warnings': True,
+                'extract_flat': False,
+                'ignoreerrors': False,
+                'cookiefile': self.youtube_music_aggregator.cookie_file.name if self.youtube_music_aggregator.cookie_file else None,
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': '*/*',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Origin': 'https://music.youtube.com',
+                    'Referer': 'https://music.youtube.com/',
+                    'Sec-Fetch-Dest': 'audio',
+                    'Sec-Fetch-Mode': 'no-cors',
+                    'Sec-Fetch-Site': 'cross-site'
+                },
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['mweb', 'android_music'],
+                        'player_skip': ['webpage'],
+                    }
+                }
+            }
+            
+            # Add fresh authentication headers
+            if auth_headers:
+                ydl_opts['http_headers'].update(auth_headers)
+            
+            # Extract URL directly
+            import concurrent.futures
+            
+            def extract_url():
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(f'https://music.youtube.com/watch?v={video_id}', download=False)
+                    if info and info.get('url'):
+                        return {
+                            'url': info['url'],
+                            'format_id': info.get('format_id'),
+                            'ext': info.get('ext'),
+                            'bitrate': info.get('abr') or info.get('tbr'),
+                            'duration': info.get('duration'),
+                            'title': info.get('title')
+                        }
+                return None
+            
+            # Run in thread pool
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(extract_url)
+                result = future.result(timeout=30)
+            
+            if result:
+                logger.info(f"[AudioStream] ✓ YouTube Music authenticated extraction successful")
                 return {
-                    'url': stream_url,
-                    'format_id': 'authenticated',
-                    'ext': 'm4a',
-                    'bitrate': None,
-                    'duration': None,
-                    'title': None,
+                    **result,
                     'strategy': 'youtube_music_authenticated'
                 }
             else:
-                logger.debug("[AudioStream] YouTube Music aggregator returned fallback URL")
+                logger.warning("[AudioStream] YouTube Music authenticated extraction failed")
                 return None
+                
         except Exception as e:
-            logger.warning(f"[AudioStream] YouTube Music aggregator auth failed: {e}")
+            logger.warning(f"[AudioStream] YouTube Music authenticated extraction error: {e}")
             return None
 
     async def _try_youtube_music_url(self, video_id: str) -> Optional[Dict[str, Any]]:
