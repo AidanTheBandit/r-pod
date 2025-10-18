@@ -9,6 +9,16 @@ import os
 import tempfile
 import hashlib
 import time
+import asyncio
+import random
+import json
+
+try:
+    import yt_dlp
+    YT_DLP_AVAILABLE = True
+except ImportError:
+    YT_DLP_AVAILABLE = False
+    logging.warning("[YTM] yt-dlp not available")
 
 from .base_music_service import BaseMusicService
 
@@ -31,6 +41,8 @@ class YouTubeMusicAggregator(BaseMusicService):
         self.brand_account_id = credentials.get("brand_account_id")
         self.cookie_file = None
         self.speed_dial_pins: set = set()  # For Speed Dial favorites
+        self._stream_url_cache = {}
+        self._cache_ttl = 300
         
     def _create_cookie_file(self):
         """Create a temporary cookie file for ytmusicapi"""
@@ -1611,6 +1623,102 @@ class YouTubeMusicAggregator(BaseMusicService):
             logger.error(f"[YTM] Error getting album tracks: {e}")
         
         return tracks
+    
+    def _generate_fresh_sapisid_hash(self) -> dict:
+        """Generate fresh SAPISID hash with current timestamp"""
+        cookies = {}
+        for cookie_pair in self.cookie.split('; '):
+            if '=' in cookie_pair:
+                name, value = cookie_pair.split('=', 1)
+                cookies[name] = value
+        
+        sapisid = cookies.get('__Secure-3PAPISID') or cookies.get('SAPISID')
+        if not sapisid:
+            return {}
+        
+        timestamp = str(int(time.time()))  # FRESH timestamp
+        origin = 'https://music.youtube.com'
+        hash_input = f"{timestamp} {sapisid} {origin}"
+        sapisid_hash = hashlib.sha1(hash_input.encode()).hexdigest()
+        
+        return {
+            'Authorization': f'SAPISIDHASH {timestamp}_{sapisid_hash}',
+            'X-Goog-AuthUser': self.profile
+        }
+    
+    async def _retry_with_backoff(self, func, max_retries=3):
+        """Retry with exponential backoff"""
+        for attempt in range(max_retries):
+            try:
+                return await func()
+            except Exception as e:
+                if '403' in str(e) and attempt < max_retries - 1:
+                    wait_time = (2 ** attempt) + random.uniform(0, 1)
+                    logger.warning(f"[Stream] 403 Forbidden - retrying in {wait_time:.1f}s ({attempt + 1}/{max_retries})")
+                    await asyncio.sleep(wait_time)
+                else:
+                    raise
+    
+    async def get_stream_url_ytdlp(self, video_id: str) -> Optional[str]:
+        """Get fresh authenticated stream URL using yt-dlp"""
+        if not YT_DLP_AVAILABLE:
+            return None
+            
+        try:
+            cache_key = f"{video_id}_{int(time.time() // 60)}"
+            if cache_key in self._stream_url_cache:
+                cached_url, cached_time = self._stream_url_cache[cache_key]
+                if time.time() - cached_time < self._cache_ttl:
+                    return cached_url
+            
+            ydl_opts = {
+                'format': 'bestaudio/best',
+                'quiet': True,
+                'no_warnings': True,
+                'extract_flat': False,
+                'cookiefile': self.cookie_file.name if self.cookie_file else None,
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                }
+            }
+            
+            loop = asyncio.get_event_loop()
+            
+            def extract_url():
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(f'https://www.youtube.com/watch?v={video_id}', download=False)
+                    return info.get('url')
+            
+            url = await loop.run_in_executor(None, extract_url)
+            
+            if url:
+                self._stream_url_cache[cache_key] = (url, time.time())
+            
+            return url
+        except Exception as e:
+            logger.error(f"[YTM] Error getting stream URL: {e}")
+            return None
+    
+    async def _prepare_stream_request(self, video_id: str) -> Optional[str]:
+        """Prepare fresh authentication for streaming"""
+        try:
+            auth_headers = self._generate_fresh_sapisid_hash()
+            
+            if hasattr(self.ytm, '_session') and self.ytm._session:
+                self.ytm._session.headers.update(auth_headers)
+            
+            if YT_DLP_AVAILABLE:
+                async def get_url():
+                    return await self.get_stream_url_ytdlp(video_id)
+                
+                url = await self._retry_with_backoff(get_url)
+                if url:
+                    return url
+            
+            return f"/api/stream/youtube/{video_id}"
+        except Exception as e:
+            logger.error(f"[YTM] Error preparing stream: {e}")
+            return None
     
     def _get_best_thumbnail(self, thumbnails: List[Dict[str, Any]]) -> Optional[str]:
         """Get the highest quality thumbnail URL, with enhancement for YouTube thumbnails"""
