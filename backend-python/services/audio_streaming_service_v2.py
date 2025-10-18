@@ -112,70 +112,100 @@ class AudioStreamingService:
         try:
             # Get fresh authentication headers from the aggregator
             auth_headers = self.youtube_music_aggregator._generate_fresh_sapisid_hash()
-            
-            # Use yt-dlp with the aggregator's authentication
-            ydl_opts = {
-                'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
-                'quiet': True,
-                'no_warnings': True,
-                'extract_flat': False,
-                'ignoreerrors': False,
-                'cookiefile': self.youtube_music_aggregator.cookie_file.name if self.youtube_music_aggregator.cookie_file else None,
-                'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': '*/*',
-                    'Accept-Language': 'en-US,en;q=0.9',
-                    'Accept-Encoding': 'gzip, deflate, br',
-                    'Origin': 'https://music.youtube.com',
-                    'Referer': 'https://music.youtube.com/',
-                    'Sec-Fetch-Dest': 'audio',
-                    'Sec-Fetch-Mode': 'no-cors',
-                    'Sec-Fetch-Site': 'cross-site'
+
+            # Use yt-dlp with the aggregator's authentication - try multiple client configurations
+            client_configs = [
+                # Most aggressive - try web client first
+                {
+                    'player_client': ['web', 'android_music', 'ios'],
+                    'player_skip': ['js', 'webpage'],
                 },
-                'extractor_args': {
-                    'youtube': {
-                        'player_client': ['mweb', 'android_music'],
-                        'player_skip': ['webpage'],
+                # Fallback to android clients
+                {
+                    'player_client': ['android_music', 'android', 'ios'],
+                    'player_skip': ['webpage'],
+                },
+                # Last resort - just android
+                {
+                    'player_client': ['android'],
+                    'player_skip': [],
+                }
+            ]
+
+            for i, client_config in enumerate(client_configs):
+                try:
+                    ydl_opts = {
+                        'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
+                        'quiet': True,
+                        'no_warnings': True,
+                        'extract_flat': False,
+                        'ignoreerrors': False,
+                        'cookiefile': self.youtube_music_aggregator.cookie_file.name if self.youtube_music_aggregator.cookie_file else None,
+                        'http_headers': {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+                            'Accept': '*/*',
+                            'Accept-Language': 'en-US,en;q=0.9',
+                            'Accept-Encoding': 'gzip, deflate, br',
+                            'Origin': 'https://music.youtube.com',
+                            'Referer': 'https://music.youtube.com/',
+                            'Sec-Fetch-Dest': 'audio',
+                            'Sec-Fetch-Mode': 'no-cors',
+                            'Sec-Fetch-Site': 'cross-site',
+                            'sec-ch-ua': '"Chromium";v="130", "Google Chrome";v="130", "Not:A-Brand";v="99"',
+                            'sec-ch-ua-arch': '"x86"',
+                            'sec-ch-ua-bitness': '"64"',
+                            'sec-ch-ua-form-factors': '"Desktop"',
+                            'sec-ch-ua-full-version': '"130.0.6723.58"',
+                            'sec-ch-ua-full-version-list': '"Chromium";v="130.0.6723.58", "Google Chrome";v="130.0.6723.58", "Not:A-Brand";v="99.0.0.0"',
+                            'sec-ch-ua-mobile': '?0',
+                            'sec-ch-ua-model': '""',
+                            'sec-ch-ua-platform': '"Windows"',
+                            'sec-ch-ua-platform-version': '"15.0.0"',
+                            'sec-ch-ua-wow64': '?0',
+                        },
+                        'extractor_args': {'youtube': client_config}
                     }
-                }
-            }
-            
-            # Add fresh authentication headers
-            if auth_headers:
-                ydl_opts['http_headers'].update(auth_headers)
-            
-            # Extract URL directly
-            import concurrent.futures
-            
-            def extract_url():
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(f'https://music.youtube.com/watch?v={video_id}', download=False)
-                    if info and info.get('url'):
+
+                    # Add fresh authentication headers
+                    if auth_headers:
+                        ydl_opts['http_headers'].update(auth_headers)
+
+                    # Extract URL directly
+                    import concurrent.futures
+
+                    def extract_url():
+                        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                            info = ydl.extract_info(f'https://music.youtube.com/watch?v={video_id}', download=False)
+                            if info and info.get('url'):
+                                return {
+                                    'url': info['url'],
+                                    'format_id': info.get('format_id'),
+                                    'ext': info.get('ext'),
+                                    'bitrate': info.get('abr') or info.get('tbr'),
+                                    'duration': info.get('duration'),
+                                    'title': info.get('title')
+                                }
+                        return None
+
+                    # Run in thread pool
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(extract_url)
+                        result = future.result(timeout=30)
+
+                    if result:
+                        logger.info(f"[AudioStream] ✓ YouTube Music authenticated extraction successful (client config {i+1})")
                         return {
-                            'url': info['url'],
-                            'format_id': info.get('format_id'),
-                            'ext': info.get('ext'),
-                            'bitrate': info.get('abr') or info.get('tbr'),
-                            'duration': info.get('duration'),
-                            'title': info.get('title')
+                            **result,
+                            'strategy': 'youtube_music_authenticated'
                         }
-                return None
-            
-            # Run in thread pool
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(extract_url)
-                result = future.result(timeout=30)
-            
-            if result:
-                logger.info(f"[AudioStream] ✓ YouTube Music authenticated extraction successful")
-                return {
-                    **result,
-                    'strategy': 'youtube_music_authenticated'
-                }
-            else:
-                logger.warning("[AudioStream] YouTube Music authenticated extraction failed")
-                return None
-                
+
+                except Exception as e:
+                    logger.debug(f"[AudioStream] Client config {i+1} failed: {e}")
+                    continue
+
+            logger.warning("[AudioStream] All YouTube Music authenticated client configs failed")
+            return None
+
         except Exception as e:
             logger.warning(f"[AudioStream] YouTube Music authenticated extraction error: {e}")
             return None
@@ -264,39 +294,96 @@ class AudioStreamingService:
         return await self._extract_with_opts(url, ydl_opts, "YouTube URL (authenticated)")
 
     async def _try_youtube_url_no_auth(self, video_id: str) -> Optional[Dict[str, Any]]:
-        """Try regular YouTube URL without authentication"""
-        ydl_opts = {
-            'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
-            'quiet': True,
-            'no_warnings': True,
-            'extract_flat': False,
-            'ignoreerrors': False,
-            'age_limit': None,
-            'extractor_args': {
-                'youtube': {
-                    'player_client': ['android', 'ios', 'mweb'],  # Use clients that work better
-                    'player_skip': ['webpage'],  # Skip webpage extraction
-                }
+        """Try regular YouTube URL without authentication - updated for 2025 protections"""
+        # Try multiple client configurations to bypass YouTube's protections
+        client_configs = [
+            # Try web client first (most likely to work)
+            {
+                'player_client': ['web', 'android', 'ios'],
+                'player_skip': ['js', 'webpage'],
             },
-            'http_headers': {
-                'User-Agent': 'com.google.android.youtube/19.29.37 (Linux; U; Android 13) gzip',
-                'Accept': '*/*',
-                'Accept-Language': 'en-US,en;q=0.9',
+            # Fallback to android clients
+            {
+                'player_client': ['android', 'ios', 'mweb'],
+                'player_skip': ['webpage'],
             },
-        }
-        url = f"https://www.youtube.com/watch?v={video_id}"
-        return await self._extract_with_opts(url, ydl_opts, "YouTube URL (no auth)")
-
-    async def _try_basic_extraction(self, video_id: str) -> Optional[Dict[str, Any]]:
-        """Try most basic extraction possible with multiple client fallbacks"""
-        # Try different client configurations
-        clients_to_try = [
-            {'player_client': ['mweb', 'android'], 'player_skip': ['webpage']},
-            {'player_client': ['ios', 'web'], 'player_skip': ['js']},
-            {'player_client': ['tv_embedded'], 'player_skip': []},
+            # Last resort - just android
+            {
+                'player_client': ['android'],
+                'player_skip': [],
+            }
         ]
 
-        for i, client_config in enumerate(clients_to_try):
+        for i, client_config in enumerate(client_configs):
+            try:
+                ydl_opts = {
+                    'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
+                    'quiet': True,
+                    'no_warnings': True,
+                    'extract_flat': False,
+                    'ignoreerrors': False,
+                    'age_limit': None,
+                    'extractor_args': {'youtube': client_config},
+                    'http_headers': {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+                        'Accept': '*/*',
+                        'Accept-Language': 'en-US,en;q=0.9',
+                        'Accept-Encoding': 'gzip, deflate, br',
+                        'DNT': '1',
+                        'Connection': 'keep-alive',
+                        'Upgrade-Insecure-Requests': '1',
+                        'sec-ch-ua': '"Chromium";v="130", "Google Chrome";v="130", "Not:A-Brand";v="99"',
+                        'sec-ch-ua-arch': '"x86"',
+                        'sec-ch-ua-bitness': '"64"',
+                        'sec-ch-ua-form-factors': '"Desktop"',
+                        'sec-ch-ua-full-version': '"130.0.6723.58"',
+                        'sec-ch-ua-full-version-list': '"Chromium";v="130.0.6723.58", "Google Chrome";v="130.0.6723.58", "Not:A-Brand";v="99.0.0.0"',
+                        'sec-ch-ua-mobile': '?0',
+                        'sec-ch-ua-model': '""',
+                        'sec-ch-ua-platform': '"Windows"',
+                        'sec-ch-ua-platform-version': '"15.0.0"',
+                        'sec-ch-ua-wow64': '?0',
+                    },
+                }
+
+                url = f"https://www.youtube.com/watch?v={video_id}"
+                result = await self._extract_with_opts(url, ydl_opts, f"YouTube URL (no auth, config {i+1})")
+                if result:
+                    return result
+
+            except Exception as e:
+                logger.debug(f"[AudioStream] No-auth config {i+1} failed: {e}")
+                continue
+
+        return None
+
+    async def _try_basic_extraction(self, video_id: str) -> Optional[Dict[str, Any]]:
+        """Try most basic extraction possible with multiple client fallbacks - updated for 2025"""
+        # Try different client configurations
+        client_configs = [
+            # Web client with modern headers
+            {
+                'player_client': ['web', 'android', 'ios'],
+                'player_skip': ['js', 'webpage'],
+            },
+            # Android music client
+            {
+                'player_client': ['android_music', 'android', 'ios'],
+                'player_skip': ['webpage'],
+            },
+            # TV embedded (often works when others don't)
+            {
+                'player_client': ['tv_embedded'],
+                'player_skip': [],
+            },
+            # Minimal android
+            {
+                'player_client': ['android'],
+                'player_skip': [],
+            }
+        ]
+
+        for i, client_config in enumerate(client_configs):
             try:
                 ydl_opts = {
                     'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
@@ -306,12 +393,23 @@ class AudioStreamingService:
                     'no_check_certificate': True,
                     'extractor_args': {'youtube': client_config},
                     'http_headers': {
-                        'User-Agent': 'Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
                         'Accept': '*/*',
                         'Accept-Language': 'en-US,en;q=0.9',
                         'Accept-Encoding': 'gzip, deflate, br',
                         'DNT': '1',
                         'Connection': 'keep-alive',
+                        'sec-ch-ua': '"Chromium";v="130", "Google Chrome";v="130", "Not:A-Brand";v="99"',
+                        'sec-ch-ua-arch': '"x86"',
+                        'sec-ch-ua-bitness': '"64"',
+                        'sec-ch-ua-form-factors': '"Desktop"',
+                        'sec-ch-ua-full-version': '"130.0.6723.58"',
+                        'sec-ch-ua-full-version-list': '"Chromium";v="130.0.6723.58", "Google Chrome";v="130.0.6723.58", "Not:A-Brand";v="99.0.0.0"',
+                        'sec-ch-ua-mobile': '?0',
+                        'sec-ch-ua-model': '""',
+                        'sec-ch-ua-platform': '"Windows"',
+                        'sec-ch-ua-platform-version': '"15.0.0"',
+                        'sec-ch-ua-wow64': '?0',
                     },
                 }
 
@@ -319,18 +417,18 @@ class AudioStreamingService:
                     ydl_opts['cookiefile'] = self.cookie_file.name
 
                 url = f"https://www.youtube.com/watch?v={video_id}"
-                result = await self._extract_with_opts(url, ydl_opts, f"_try_basic_extraction (client {i+1})")
+                result = await self._extract_with_opts(url, ydl_opts, f"_try_basic_extraction (config {i+1})")
                 if result:
                     return result
 
             except Exception as e:
-                logger.debug(f"[AudioStream] Basic extraction client {i+1} failed: {e}")
+                logger.debug(f"[AudioStream] Basic extraction config {i+1} failed: {e}")
                 continue
 
         return None
 
     async def _extract_with_opts(self, url: str, ydl_opts: dict, strategy_name: str) -> Optional[Dict[str, Any]]:
-        """Common extraction logic with enhanced error handling for YouTube protections"""
+        """Common extraction logic with enhanced error handling for YouTube protections - updated for 2025"""
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
@@ -376,23 +474,31 @@ class AudioStreamingService:
         except yt_dlp.DownloadError as e:
             err_msg = str(e)
 
-            # Check for YouTube protection/signature/PO Token errors
-            if (
-                "unable to extract player version" in err_msg or
-                "No PO Token provided" in err_msg or
-                "Failed to extract any player response" in err_msg or
-                "Signature extraction failed" in err_msg or
-                "Failed to parse JSON" in err_msg or
-                "Only images are available for download" in err_msg
-            ):
-                logger.error(f"[AudioStream] YT-dlp extraction blocked by YouTube protections: {err_msg}")
+            # Check for various YouTube protection/signature/PO Token errors
+            protection_indicators = [
+                "unable to extract player response",
+                "No PO Token provided",
+                "Failed to extract any player response",
+                "Signature extraction failed",
+                "Failed to parse JSON",
+                "Only images are available for download",
+                "Video unavailable",
+                "Sign in to confirm you're not a bot",
+                "This video requires payment",
+                "This video is not available",
+                "private video",
+                "This video has been removed"
+            ]
+
+            if any(indicator.lower() in err_msg.lower() for indicator in protection_indicators):
+                logger.warning(f"[AudioStream] YouTube protection detected in {strategy_name}: {err_msg[:200]}")
                 # Return structured error for UI to handle gracefully
                 return {
                     'error': 'YOUTUBE_PROTECTION',
                     'error_message': (
                         'This audio is temporarily protected by YouTube '
                         'and cannot be streamed with current yt-dlp. '
-                        'Please try again after a future yt-dlp update.'
+                        'Please try again later or use a different video.'
                     ),
                     'strategy': strategy_name,
                     'technical_details': err_msg[:200]  # Truncate for safety
@@ -405,6 +511,29 @@ class AudioStreamingService:
 
             # Re-raise other download errors
             raise e
+
+        except Exception as e:
+            # Handle other types of errors
+            err_msg = str(e)
+            if "HTTP Error 429" in err_msg or "rate limit" in err_msg.lower():
+                logger.warning(f"[AudioStream] Rate limited in {strategy_name}: {err_msg}")
+                return {
+                    'error': 'RATE_LIMIT',
+                    'error_message': 'YouTube rate limit exceeded. Please try again later.',
+                    'strategy': strategy_name,
+                    'technical_details': err_msg[:200]
+                }
+            elif "HTTP Error 403" in err_msg:
+                logger.warning(f"[AudioStream] Access denied in {strategy_name}: {err_msg}")
+                return {
+                    'error': 'ACCESS_DENIED',
+                    'error_message': 'Access denied by YouTube. Video may be private or region-locked.',
+                    'strategy': strategy_name,
+                    'technical_details': err_msg[:200]
+                }
+            else:
+                logger.warning(f"[AudioStream] Unexpected error in {strategy_name}: {err_msg}")
+                raise
 
     async def _try_any_format(self, url: str, strategy_name: str) -> Optional[Dict[str, Any]]:
         """Last resort: try to get any available format"""
