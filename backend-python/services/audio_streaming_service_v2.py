@@ -30,15 +30,17 @@ logger = logging.getLogger(__name__)
 class AudioStreamingService:
     """Service for streaming YouTube audio with cookie authentication and Piped fallback"""
 
-    def __init__(self, cookie: Optional[str] = None):
+    def __init__(self, cookie: Optional[str] = None, youtube_music_aggregator: Optional[Any] = None):
         """
         Initialize the audio streaming service
         
         Args:
             cookie: YouTube Music cookie string for authentication
+            youtube_music_aggregator: YouTube Music aggregator instance for authenticated streaming
         """
         self.cache = {}
         self.cookie = cookie
+        self.youtube_music_aggregator = youtube_music_aggregator
         self.cookie_file = None
         if self.cookie:
             self._create_cookie_file()
@@ -73,6 +75,7 @@ class AudioStreamingService:
     async def get_stream_url(self, video_id: str) -> Optional[Dict[str, Any]]:
         """Get direct stream URL with yt-dlp, fallback to Piped if needed"""
         strategies = [
+            self._try_youtube_music_authenticated,  # NEW: Use YouTube Music aggregator auth first
             self._try_youtube_url_no_auth,
             self._try_youtube_music_url,
             self._try_youtube_url_authenticated,
@@ -98,6 +101,33 @@ class AudioStreamingService:
                 continue
         logger.error(f"[AudioStream] All strategies failed for {video_id}")
         return None
+
+    async def _try_youtube_music_authenticated(self, video_id: str) -> Optional[Dict[str, Any]]:
+        """Try using YouTube Music aggregator's authenticated streaming method"""
+        if not self.youtube_music_aggregator:
+            logger.debug("[AudioStream] No YouTube Music aggregator available")
+            return None
+
+        try:
+            # Use the new authenticated streaming method from the aggregator
+            stream_url = await self.youtube_music_aggregator._prepare_stream_request(video_id)
+            if stream_url and stream_url != f"/api/stream/youtube/{video_id}":
+                logger.info(f"[AudioStream] ✓ YouTube Music aggregator provided authenticated URL")
+                return {
+                    'url': stream_url,
+                    'format_id': 'authenticated',
+                    'ext': 'm4a',
+                    'bitrate': None,
+                    'duration': None,
+                    'title': None,
+                    'strategy': 'youtube_music_authenticated'
+                }
+            else:
+                logger.debug("[AudioStream] YouTube Music aggregator returned fallback URL")
+                return None
+        except Exception as e:
+            logger.warning(f"[AudioStream] YouTube Music aggregator auth failed: {e}")
+            return None
 
     async def _try_youtube_music_url(self, video_id: str) -> Optional[Dict[str, Any]]:
         """Try YouTube Music URL with authentication"""

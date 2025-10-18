@@ -69,8 +69,29 @@ async def lifespan(app: FastAPI):
     logger.info(f"  CORS_ORIGINS: {settings.cors_origins}")
     logger.info("=" * 60)
     
-    # Initialize audio streaming service with cookie
-    audio_streaming_service = AudioStreamingService(cookie=settings.youtube_music_cookie)
+    # Initialize YouTube Music aggregator for authenticated streaming
+    youtube_music_aggregator = None
+    if settings.youtube_music_cookie:
+        try:
+            youtube_music_aggregator = YouTubeMusicAggregator({
+                "cookie": settings.youtube_music_cookie,
+                "profile": settings.youtube_music_profile,
+                "brand_account_id": settings.youtube_music_brand_account_id
+            })
+            if await youtube_music_aggregator.authenticate():
+                logger.info("✓ YouTube Music aggregator initialized for streaming")
+            else:
+                logger.warning("✗ YouTube Music aggregator authentication failed")
+                youtube_music_aggregator = None
+        except Exception as e:
+            logger.error(f"Failed to initialize YouTube Music aggregator: {e}")
+            youtube_music_aggregator = None
+    
+    # Initialize audio streaming service with cookie and aggregator
+    audio_streaming_service = AudioStreamingService(
+        cookie=settings.youtube_music_cookie,
+        youtube_music_aggregator=youtube_music_aggregator
+    )
     logger.info("Audio streaming service initialized")
     
     yield
