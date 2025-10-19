@@ -98,7 +98,7 @@ PORT=3451
 HOST=0.0.0.0
 
 # Security - CHANGE THIS PASSWORD!
-SERVER_PASSWORD=change-me-in-production-please
+SERVER_PASSWORD=change-me-in-production
 
 # YouTube Music (Required)
 YOUTUBE_MUSIC_COOKIE=your-youtube-music-cookie-here
@@ -152,7 +152,7 @@ if [ ! -f ".env.local" ]; then
     cat > .env.local << EOF
 # Backend Configuration (leave empty for manual entry)
 VITE_BACKEND_URL=
-VITE_BACKEND_PASSWORD=change-me-in-production-please
+VITE_BACKEND_PASSWORD=change-me-in-production
 EOF
     print_status "Created .env.local file - PLEASE EDIT IT WITH YOUR SETTINGS"
 else

@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     debug: bool = False
     
     # Security - Compatible with existing .env
-    server_password: str = "ytm-secure-2025-r1"
+    server_password: str = os.getenv("SERVER_PASSWORD", "change-me-in-production")
     jwt_secret: Optional[str] = None
     encryption_key: Optional[str] = None
     secret_key: Optional[str] = None  # Fallback
@@ -36,6 +36,16 @@ class Settings(BaseSettings):
     youtube_client_id: Optional[str] = None
     youtube_client_secret: Optional[str] = None
     youtube_redirect_uri: Optional[str] = None
+    
+    # YouTube InnerTube API Keys (optional - fallback to defaults if not set)
+    youtube_innertube_api_key_web: Optional[str] = None
+    youtube_innertube_api_key_android: Optional[str] = None
+    youtube_innertube_api_key_ios: Optional[str] = None
+    
+    # Proxy Configuration
+    proxy_enabled: bool = False
+    proxy_list: Optional[str] = None  # Comma-separated list or path to file
+    proxy_rotation_interval: int = 300  # Rotate proxies every 5 minutes
     
     # Apple Music - Compatible with existing .env (not implemented yet)
     apple_music_team_id: Optional[str] = None

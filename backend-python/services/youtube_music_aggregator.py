@@ -183,7 +183,96 @@ class YouTubeMusicAggregator(BaseMusicService):
             except Exception as e:
                 logger.warning(f"[YTM] Official headers_auth.json method failed: {e}")
 
-            # Method 1: Try proper ytmusicapi JSON headers format (most reliable for all endpoints)
+            # Method 1: Try direct API calls with proper authentication (bypassing ytmusicapi issues)
+            logger.info("[YTM] Method 1: Trying direct API calls with proper authentication")
+            try:
+                # Test direct API call like in our working test
+                import requests
+                import brotli
+                
+                # Parse cookies
+                cookies = {}
+                for cookie_pair in self.cookie.split('; '):
+                    if '=' in cookie_pair:
+                        name, value = cookie_pair.split('=', 1)
+                        cookies[name] = value
+                
+                # Create headers matching the working direct call
+                headers = {
+                    'Cookie': self.cookie,
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
+                    'Accept': '*/*',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Origin': 'https://music.youtube.com',
+                    'Referer': 'https://music.youtube.com/',
+                    'Sec-Fetch-Dest': 'empty',
+                    'Sec-Fetch-Mode': 'same-origin',
+                    'Sec-Fetch-Site': 'same-origin',
+                    'X-Goog-AuthUser': self.profile,
+                    'X-Goog-PageId': 'account-chooser',
+                    'X-Origin': 'https://music.youtube.com',
+                    'X-Client-Data': 'CMTaygE=',
+                    'X-YouTube-Bootstrap-Logged-In': 'true',
+                    'X-YouTube-Client-Name': '67',
+                    'X-YouTube-Client-Version': '1.20250929.03.00'
+                }
+                
+                # Add SAPISID authentication
+                if '__Secure-3PAPISID' in cookies:
+                    import hashlib
+                    import time
+                    
+                    sapisid = cookies['__Secure-3PAPISID']
+                    timestamp = str(int(time.time()))
+                    origin = 'https://music.youtube.com'
+                    
+                    hash_input = f"{timestamp} {sapisid} {origin}"
+                    sapisid_hash = hashlib.sha1(hash_input.encode()).hexdigest()
+                    
+                    headers['Authorization'] = f'SAPISIDHASH {timestamp}_{sapisid_hash}'
+                
+                # Test home endpoint directly
+                url = "https://music.youtube.com/youtubei/v1/browse"
+                payload = {
+                    "context": {
+                        "client": {
+                            "clientName": "WEB_REMIX",
+                            "clientVersion": "1.20250929.03.00"
+                        }
+                    },
+                    "browseId": "FEmusic_home"
+                }
+                
+                response = requests.post(url, headers=headers, json=payload, timeout=10)
+                
+                if response.status_code == 200:
+                    try:
+                        data = response.json()
+                        if data and 'contents' in data:
+                            logger.info("[YTM] ✓ Direct API authentication successful - home endpoint works")
+                            
+                            # Create a minimal YTMusic instance for compatibility
+                            # We'll override methods to use direct API calls
+                            self.ytm = YTMusic()  # Create basic instance
+                            
+                            # Store our working headers for direct API calls
+                            self._direct_headers = headers
+                            self._direct_cookies = cookies
+                            
+                            self.is_authenticated = True
+                            return True
+                        else:
+                            logger.warning("[YTM] Direct API call succeeded but response lacks contents")
+                    except json.JSONDecodeError as e:
+                        logger.warning(f"[YTM] Direct API response not valid JSON: {e}")
+                else:
+                    logger.warning(f"[YTM] Direct API call failed with status {response.status_code}")
+                    
+            except Exception as e:
+                logger.warning(f"[YTM] Direct API method failed: {e}")
+
+            # Method 2: Try proper ytmusicapi JSON headers format (most reliable for all endpoints)
             logger.info("[YTM] Method 1: Trying proper ytmusicapi JSON headers format")
             try:
                 headers_file_path = self._create_proper_cookie_file()
@@ -602,6 +691,76 @@ class YouTubeMusicAggregator(BaseMusicService):
             None, lambda: func(*args, **kwargs)
         )
     
+    async def _get_home_direct_api(self) -> Optional[List[Dict[str, Any]]]:
+        """Get home data using direct API calls as fallback"""
+        try:
+            if not hasattr(self, '_direct_headers') or not self._direct_headers:
+                logger.warning("[YTM] No direct API headers available")
+                return None
+            
+            import requests
+            import brotli
+            
+            url = "https://music.youtube.com/youtubei/v1/browse"
+            payload = {
+                "context": {
+                    "client": {
+                        "clientName": "WEB_REMIX",
+                        "clientVersion": "1.20250929.03.00"
+                    }
+                },
+                "browseId": "FEmusic_home"
+            }
+            
+            response = requests.post(url, headers=self._direct_headers, json=payload, timeout=10)
+            
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    if data and 'contents' in data:
+                        # Parse the home sections from the direct API response
+                        contents = data.get('contents', {}).get('singleColumnBrowseResultsRenderer', {}).get('tabs', [{}])[0].get('tabRenderer', {}).get('content', {})
+                        
+                        if contents.get('sectionListRenderer'):
+                            sections = contents['sectionListRenderer'].get('contents', [])
+                            
+                            # Map sections to a format similar to ytmusicapi
+                            home_sections = []
+                            for section in sections:
+                                if section.get('musicCarouselShelfRenderer'):
+                                    shelf = section['musicCarouselShelfRenderer']
+                                    
+                                    # Extract section title
+                                    title = ""
+                                    if shelf.get('header'):
+                                        header = shelf['header']
+                                        if header.get('musicCarouselShelfBasicHeaderRenderer'):
+                                            title_renderer = header['musicCarouselShelfBasicHeaderRenderer'].get('title', {})
+                                            if title_renderer.get('runs') and len(title_renderer['runs']) > 0:
+                                                title = title_renderer['runs'][0].get('text', '')
+                                    
+                                    # Extract contents
+                                    contents = shelf.get('contents', [])
+                                    
+                                    home_sections.append({
+                                        'title': title,
+                                        'contents': contents
+                                    })
+                            
+                            logger.info(f"[YTM] ✓ Got {len(home_sections)} home sections via direct API")
+                            return home_sections
+                        
+                except json.JSONDecodeError as e:
+                    logger.warning(f"[YTM] Direct API response not valid JSON: {e}")
+                    
+            else:
+                logger.warning(f"[YTM] Direct API call failed with status {response.status_code}")
+                
+        except Exception as e:
+            logger.warning(f"[YTM] Direct API home call failed: {e}")
+            
+        return None
+    
     async def get_tracks(self) -> List[Dict[str, Any]]:
         """Get user's tracks with priority on personal library songs, playlists, and liked songs"""
         if not self.is_authenticated:
@@ -627,7 +786,7 @@ class YouTubeMusicAggregator(BaseMusicService):
                         
             except Exception as e:
                 logger.warning(f"[YTM] Library songs failed, falling back to recommendations: {e}")
-                logger.info(f"[YTM] Library songs raw response: {library_songs}")
+                # Note: library_songs variable not available here due to exception
 
             logger.info(f"[YTM] ✓ Loaded {len(tracks)} library songs from {len(library_songs) if library_songs else 0} raw items")
 
@@ -787,7 +946,73 @@ class YouTubeMusicAggregator(BaseMusicService):
                                     break
 
                 except Exception as e:
-                    logger.warning(f"[YTM] Failed to get home recommendations: {e}")
+                    logger.warning(f"[YTM] Failed to get home recommendations via ytmusicapi: {e}")
+                    
+                    # Fallback to direct API
+                    logger.info("[YTM] Trying direct API for home recommendations")
+                    try:
+                        home_sections = await self._get_home_direct_api()
+                        if home_sections:
+                            rec_sections = [
+                                'quick picks', 'listen again', 'mixed for you', 'recommended',
+                                'your likes', 'similar to', 'more from', 'discover mix'
+                            ]
+                            
+                            for section in home_sections:
+                                section_title = (section.get("title") or "").lower()
+                                
+                                is_rec_section = any(rec.lower() in section_title for rec in rec_sections)
+                                
+                                if is_rec_section and section.get("contents"):
+                                    logger.info(f"[YTM] Processing recommendation section via direct API: {section_title}")
+                                    
+                                    for item in section["contents"][:10]:
+                                        # Look for musicResponsiveListItemRenderer or similar
+                                        if item.get("musicResponsiveListItemRenderer"):
+                                            item_data = item["musicResponsiveListItemRenderer"]
+                                            # Try to extract videoId from the item
+                                            video_id = None
+                                            if item_data.get("playlistItemData"):
+                                                video_id = item_data["playlistItemData"].get("videoId")
+                                            elif item_data.get("flexColumns"):
+                                                # Look through flex columns for videoId
+                                                for col in item_data["flexColumns"]:
+                                                    if col.get("musicResponsiveListItemFlexColumnRenderer"):
+                                                        for run in col["musicResponsiveListItemFlexColumnRenderer"].get("text", {}).get("runs", []):
+                                                            if run.get("navigationEndpoint"):
+                                                                nav = run["navigationEndpoint"]
+                                                                if nav.get("watchEndpoint"):
+                                                                    video_id = nav["watchEndpoint"].get("videoId")
+                                                                    break
+                                                if video_id:
+                                                    break
+                                            
+                                            if video_id:
+                                                # Create a basic track structure
+                                                track = {
+                                                    "id": f"ytm:{video_id}",
+                                                    "title": "Unknown Title",  # Would need more parsing
+                                                    "artist": "Unknown Artist",
+                                                    "album": "Unknown Album",
+                                                    "albumArt": f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg",
+                                                    "streamUrl": f"/api/stream/youtube/{video_id}",
+                                                    "service": "youtubeMusic",
+                                                    "videoId": video_id,
+                                                    "section": section_title
+                                                }
+                                                tracks.append(track)
+                                                
+                                                if len(tracks) >= 100:
+                                                    break
+                                        
+                                        if len(tracks) >= 100:
+                                            break
+                                            
+                                if len(tracks) >= 100:
+                                    break
+                                    
+                    except Exception as direct_e:
+                        logger.warning(f"[YTM] Direct API fallback also failed: {direct_e}")
 
             logger.info(f"[YTM] ✓ Returning {len(tracks)} tracks")
 
@@ -828,38 +1053,32 @@ class YouTubeMusicAggregator(BaseMusicService):
             logger.error(f"[YTM] Error getting home section '{section_name}': {e}")
             return []
     
-    async def get_personalized_home_grid(self):
-        """Unified personalized feed combining Listen Again, Quick Picks, and Speed Dial"""
+    async def get_home(self) -> Dict[str, Any]:
+        """Get home data for debugging/testing purposes"""
         if not self.is_authenticated:
             await self.authenticate()
         
         try:
-            logger.info("[YTM] Getting unified personalized home grid")
+            logger.info("[YTM] Getting home data")
             
-            # Get tracks from each section
-            listen_again = await self.get_home_section('listen again')
-            quick_picks = await self.get_home_section('quick picks')
-            speed_dial = await self.get_speed_dial_tracks()
+            # Try ytmusicapi first
+            try:
+                home = await self._run_sync(self.ytm.get_home, limit=5)
+                if home:
+                    return {"sections": home}
+            except Exception as e:
+                logger.warning(f"[YTM] ytmusicapi get_home failed: {e}")
             
-            # Merge and deduplicate by videoId
-            unique_tracks = {}
-            for section_name, tracks in [("listen again", listen_again), ("quick picks", quick_picks), ("speed dial", speed_dial)]:
-                for track in tracks:
-                    video_id = track.get("videoId")
-                    if video_id:
-                        if video_id not in unique_tracks:
-                            unique_tracks[video_id] = track.copy()
-                        unique_tracks[video_id]["section"] = section_name
+            # Fallback to direct API
+            home_sections = await self._get_home_direct_api()
+            if home_sections:
+                return {"sections": home_sections}
             
-            # Return as a 3x3 grid (27 slots) - limit to 27 tracks
-            grid_tracks = list(unique_tracks.values())[:27]
-            
-            logger.info(f"[YTM] ✓ Created personalized grid with {len(grid_tracks)} tracks")
-            return grid_tracks
+            return {"sections": []}
             
         except Exception as e:
-            logger.error(f"[YTM] Error getting personalized home grid: {e}")
-            return []
+            logger.error(f"[YTM] Error getting home: {e}")
+            return {"sections": []}
     
     async def pin_to_speed_dial(self, video_id: str):
         """Pin a track to Speed Dial favorites"""

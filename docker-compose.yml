@@ -12,7 +12,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
-      - SERVER_PASSWORD=${SERVER_PASSWORD:-music-aggregator-2025}
+      - SERVER_PASSWORD=${SERVER_PASSWORD:-change-me-in-production}
       - CACHE_TTL=3600
       - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
     volumes:

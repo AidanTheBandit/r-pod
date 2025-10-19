@@ -73,7 +73,7 @@ fi
 
 # Remove development documentation (keep essential docs)
 print_status "Cleaning up documentation..."
-# Keep: README.md, SELF_HOSTING_GUIDE.md
+# Keep: README.md, SETUP.md
 # Remove development docs that aren't needed in production
 rm -f DEVELOPMENT.md 2>/dev/null || true
 rm -f CONTRIBUTING.md 2>/dev/null || true

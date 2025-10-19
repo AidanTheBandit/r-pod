@@ -18,7 +18,7 @@ import httpx
 from config import settings
 from services.youtube_music_aggregator import YouTubeMusicAggregator
 from services.spotify_aggregator import SpotifyAggregator
-from services.audio_streaming_service_v2 import AudioStreamingService
+from services.audio_streaming_service_v3 import AudioStreamingService
 
 # Configure logging
 logging.basicConfig(
@@ -79,7 +79,7 @@ async def lifespan(app: FastAPI):
                 "brand_account_id": settings.youtube_music_brand_account_id
             })
             if await youtube_music_aggregator.authenticate():
-                logger.info("✓ YouTube Music aggregator initialized for streaming")
+                logger.info("✓ YouTube Music aggregator initialized for metadata")
             else:
                 logger.warning("✗ YouTube Music aggregator authentication failed")
                 youtube_music_aggregator = None
@@ -87,12 +87,12 @@ async def lifespan(app: FastAPI):
             logger.error(f"Failed to initialize YouTube Music aggregator: {e}")
             youtube_music_aggregator = None
     
-    # Initialize audio streaming service with cookie and aggregator
+    # Initialize audio streaming service with InnerTube API (no auth needed for playback!)
     audio_streaming_service = AudioStreamingService(
         cookie=settings.youtube_music_cookie,
         youtube_music_aggregator=youtube_music_aggregator
     )
-    logger.info("Audio streaming service initialized")
+    logger.info("✓ Audio streaming service initialized with InnerTube API")
     
     yield
     
