@@ -103,10 +103,22 @@ npm run host-both
 - Service aggregators: Real API integrations for each service
 - Settings view: Actual service connection management
 
-## 🔧 Service Configuration
+## � Documentation
+
+- **[SECURITY.md](./SECURITY.md)** - Security guide and credential management
+- **[ENV_SETUP_GUIDE.md](./ENV_SETUP_GUIDE.md)** - Detailed environment configuration
+- **[API_KEYS_REFERENCE.md](./API_KEYS_REFERENCE.md)** - API keys and authentication reference
+- **[SELF_HOSTING_GUIDE.md](./SELF_HOSTING_GUIDE.md)** - Production deployment guide
+
+## �🔧 Service Configuration
+
+⚠️ **IMPORTANT:** Never commit `.env` files or `headers_auth.json` to version control. See [SECURITY.md](./SECURITY.md) for details.
 
 ### YouTube Music (Required)
 
+See [ENV_SETUP_GUIDE.md](./ENV_SETUP_GUIDE.md) for detailed setup instructions.
+
+**Quick Setup:**
 1. **Get Cookie**: Open Chrome → YouTube Music → DevTools → Network → Copy `cookie` header
 2. **Configure**: Add to `backend-python/.env`
 3. **Test**: Run account debugging to find correct profile

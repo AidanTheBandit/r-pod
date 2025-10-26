@@ -44,30 +44,26 @@ class AudioStreamingService:
     INNERTUBE_CLIENTS = {
         "WEB_REMIX": {
             "clientName": "WEB_REMIX",
-            "clientVersion": "1.20241015.01.00",
+            "clientVersion": "1.20250922.03.00",
+            "clientNameNumber": 67,
             "api_key": os.getenv("YOUTUBE_INNERTUBE_API_KEY_WEB", "AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30"),
             "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         },
-        "ANDROID_MUSIC": {
-            "clientName": "ANDROID_MUSIC",
-            "clientVersion": "6.42.52",
-            "androidSdkVersion": 30,
-            "api_key": os.getenv("YOUTUBE_INNERTUBE_API_KEY_ANDROID_MUSIC", "AIzaSyAOghZGza2MQSZkY_zfZ370N-PUdXEo8AI"),
-            "user_agent": "com.google.android.apps.youtube.music/6.42.52 (Linux; U; Android 11) gzip"
-        },
-        "IOS_MUSIC": {
-            "clientName": "IOS_MUSIC",
-            "clientVersion": "6.42",
-            "deviceModel": "iPhone14,5",
-            "api_key": os.getenv("YOUTUBE_INNERTUBE_API_KEY_IOS_MUSIC", "AIzaSyBAETezhkwP0ZWA02RsqT1zu78Fpt0bC_s"),
-            "user_agent": "com.google.ios.youtubemusic/6.42 (iPhone; U; CPU iOS 17_0 like Mac OS X)"
-        },
         "ANDROID": {
             "clientName": "ANDROID",
-            "clientVersion": "18.11.34",
+            "clientVersion": "20.10.38",
+            "clientNameNumber": 3,
             "androidSdkVersion": 30,
             "api_key": os.getenv("YOUTUBE_INNERTUBE_API_KEY_ANDROID", "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8"),
-            "user_agent": "com.google.android.youtube/18.11.34 (Linux; U; Android 11) gzip"
+            "user_agent": "com.google.android.youtube/20.10.38 (Linux; U; Android 11) gzip"
+        },
+        "IOS": {
+            "clientName": "IOS",
+            "clientVersion": "20.10.4",
+            "clientNameNumber": 5,
+            "deviceModel": "iPhone16,2",
+            "api_key": os.getenv("YOUTUBE_INNERTUBE_API_KEY_IOS", "AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc"),
+            "user_agent": "com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X;)"
         }
     }
     
@@ -168,11 +164,10 @@ class AudioStreamingService:
             Dict with stream info or None if all strategies fail
         """
         strategies = [
-            self._try_youtube_music_authenticated,  # Primary: Authenticated yt-dlp
+            self._try_yt_dlp_authenticated,  # Primary: yt-dlp with cookies
             self._try_innertube_web_remix,
-            self._try_innertube_android_music,
-            self._try_innertube_ios_music,
             self._try_innertube_android,
+            self._try_innertube_ios,
             self._try_cobalt_api,
             self._try_piped_fallback
         ]
@@ -191,126 +186,74 @@ class AudioStreamingService:
         logger.error(f"[AudioStream] All strategies failed for {video_id}")
         return None
     
-    async def _try_youtube_music_authenticated(self, video_id: str) -> Optional[Dict[str, Any]]:
-        """Try using YouTube Music authenticated extraction with yt-dlp"""
-        if not self.youtube_music_aggregator:
-            logger.debug("[AudioStream] No YouTube Music aggregator available")
+    async def _try_yt_dlp_authenticated(self, video_id: str) -> Optional[Dict[str, Any]]:
+        """Try yt-dlp with authentication (cookies)"""
+        if not self.cookie_file:
+            logger.debug("[AudioStream] No cookie file available for yt-dlp")
             return None
 
         try:
-            # Get fresh authentication headers from the aggregator
-            auth_headers = self.youtube_music_aggregator._generate_fresh_sapisid_hash()
-
-            # Use yt-dlp with the aggregator's authentication - try multiple client configurations
-            client_configs = [
-                # Most aggressive - try web client first
-                {
-                    'player_client': ['web', 'android_music', 'ios'],
+            ydl_opts = {
+                'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
+                'quiet': True,
+                'no_warnings': True,
+                'extract_flat': False,
+                'ignoreerrors': False,
+                'cookiefile': self.cookie_file.name,
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+                    'Accept': '*/*',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Origin': 'https://www.youtube.com',
+                    'Referer': 'https://www.youtube.com/',
+                },
+                'extractor_args': {'youtube': {
+                    'player_client': ['web', 'android', 'ios'],
                     'player_skip': ['js', 'webpage'],
-                },
-                # Fallback to android clients
-                {
-                    'player_client': ['android_music', 'android', 'ios'],
-                    'player_skip': ['webpage'],
-                },
-                # Last resort - just android
-                {
-                    'player_client': ['android'],
-                    'player_skip': [],
-                }
-            ]
+                }}
+            }
 
-            for i, client_config in enumerate(client_configs):
-                try:
-                    ydl_opts = {
-                        'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio',
-                        'quiet': True,
-                        'no_warnings': True,
-                        'extract_flat': False,
-                        'ignoreerrors': False,
-                        'cookiefile': self.youtube_music_aggregator.cookie_file.name if self.youtube_music_aggregator.cookie_file else None,
-                        'http_headers': {
-                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
-                            'Accept': '*/*',
-                            'Accept-Language': 'en-US,en;q=0.9',
-                            'Accept-Encoding': 'gzip, deflate, br',
-                            'Origin': 'https://music.youtube.com',
-                            'Referer': 'https://music.youtube.com/',
-                            'Sec-Fetch-Dest': 'audio',
-                            'Sec-Fetch-Mode': 'no-cors',
-                            'Sec-Fetch-Site': 'cross-site',
-                            'sec-ch-ua': '"Chromium";v="130", "Google Chrome";v="130", "Not:A-Brand";v="99"',
-                            'sec-ch-ua-arch': '"x86"',
-                            'sec-ch-ua-bitness': '"64"',
-                            'sec-ch-ua-form-factors': '"Desktop"',
-                            'sec-ch-ua-full-version': '"130.0.6723.58"',
-                            'sec-ch-ua-full-version-list': '"Chromium";v="130.0.6723.58", "Google Chrome";v="130.0.6723.58", "Not:A-Brand";v="99.0.0.0"',
-                            'sec-ch-ua-mobile': '?0',
-                            'sec-ch-ua-model': '""',
-                            'sec-ch-ua-platform': '"Windows"',
-                            'sec-ch-ua-platform-version': '"15.0.0"',
-                            'sec-ch-ua-wow64': '?0',
-                        },
-                        'extractor_args': {'youtube': client_config}
-                    }
-
-                    # Add fresh authentication headers
-                    if auth_headers:
-                        ydl_opts['http_headers'].update(auth_headers)
-
-                    # Extract URL directly
-                    def extract_url():
-                        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                            info = ydl.extract_info(f'https://music.youtube.com/watch?v={video_id}', download=False)
-                            if info and info.get('url'):
-                                return {
-                                    'url': info['url'],
-                                    'format_id': info.get('format_id'),
-                                    'ext': info.get('ext'),
-                                    'bitrate': info.get('abr') or info.get('tbr'),
-                                    'duration': info.get('duration'),
-                                    'title': info.get('title')
-                                }
-                        return None
-
-                    # Run in thread pool
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(extract_url)
-                        result = future.result(timeout=30)
-
-                    if result:
-                        logger.info(f"[AudioStream] ✓ YouTube Music authenticated extraction successful (client config {i+1})")
+            def extract_url():
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(f'https://www.youtube.com/watch?v={video_id}', download=False)
+                    if info and info.get('url'):
                         return {
-                            **result,
-                            'strategy': 'youtube_music_authenticated'
+                            'url': info['url'],
+                            'format_id': info.get('format_id'),
+                            'ext': info.get('ext'),
+                            'bitrate': info.get('abr') or info.get('tbr'),
+                            'duration': info.get('duration'),
+                            'title': info.get('title')
                         }
+                return None
 
-                except Exception as e:
-                    logger.debug(f"[AudioStream] Client config {i+1} failed: {e}")
-                    continue
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(extract_url)
+                result = future.result(timeout=30)
 
-            logger.warning("[AudioStream] All YouTube Music authenticated client configs failed")
-            return None
+            if result:
+                logger.info(f"[AudioStream] ✓ yt-dlp authenticated extraction successful")
+                return {
+                    **result,
+                    'strategy': 'yt_dlp_authenticated'
+                }
 
         except Exception as e:
-            logger.warning(f"[AudioStream] YouTube Music authenticated extraction error: {e}")
+            logger.warning(f"[AudioStream] yt-dlp authenticated extraction failed: {e}")
             return None
     
     async def _try_innertube_web_remix(self, video_id: str) -> Optional[Dict[str, Any]]:
         """Try InnerTube API with WEB_REMIX client (YouTube Music web player)"""
         return await self._try_innertube_client(video_id, "WEB_REMIX")
     
-    async def _try_innertube_android_music(self, video_id: str) -> Optional[Dict[str, Any]]:
-        """Try InnerTube API with ANDROID_MUSIC client"""
-        return await self._try_innertube_client(video_id, "ANDROID_MUSIC")
-    
-    async def _try_innertube_ios_music(self, video_id: str) -> Optional[Dict[str, Any]]:
-        """Try InnerTube API with IOS_MUSIC client"""
-        return await self._try_innertube_client(video_id, "IOS_MUSIC")
-    
     async def _try_innertube_android(self, video_id: str) -> Optional[Dict[str, Any]]:
-        """Try InnerTube API with ANDROID client (YouTube app)"""
+        """Try InnerTube API with ANDROID client"""
         return await self._try_innertube_client(video_id, "ANDROID")
+    
+    async def _try_innertube_ios(self, video_id: str) -> Optional[Dict[str, Any]]:
+        """Try InnerTube API with IOS client"""
+        return await self._try_innertube_client(video_id, "IOS")
     
     async def _try_innertube_client(self, video_id: str, client_name: str) -> Optional[Dict[str, Any]]:
         """
@@ -358,7 +301,10 @@ class AudioStreamingService:
                 "Accept": "*/*",
                 "Accept-Language": "en-US,en;q=0.9",
                 "Origin": "https://music.youtube.com" if "MUSIC" in client_name else "https://www.youtube.com",
-                "Referer": "https://music.youtube.com/" if "MUSIC" in client_name else "https://www.youtube.com/"
+                "Referer": "https://music.youtube.com/" if "MUSIC" in client_name else "https://www.youtube.com/",
+                "X-YouTube-Client-Name": str(client_config["clientNameNumber"]),
+                "X-YouTube-Client-Version": client_config["clientVersion"],
+                "X-Goog-Visitor-Id": "CgtQU3JVTUNmejVKYyjOsIvHBjIKCgJVUxIEGgAgJA%3D%3D"  # Default visitor ID
             }
             
             # Try with proxy rotation (up to 3 attempts)
@@ -481,11 +427,9 @@ class AudioStreamingService:
         
         payload = {
             "url": f"https://www.youtube.com/watch?v={video_id}",
-            "vCodec": "h264",
-            "vQuality": "max",
             "aFormat": "best",
             "isAudioOnly": True,
-            "filenamePattern": "basic"
+            "filenameStyle": "basic"
         }
         
         headers = {
