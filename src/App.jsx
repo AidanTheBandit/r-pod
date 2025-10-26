@@ -20,6 +20,7 @@ import SearchView from './views/SearchView'
 import PlaylistDetailsView from './views/PlaylistDetailsView'
 import ArtistDetailsView from './views/ArtistDetailsView'
 import AlbumDetailsView from './views/AlbumDetailsView'
+import DevicePairingView from './views/DevicePairingView'
 import './styles/App.css'
 
 // Background player component that stays mounted
@@ -245,6 +246,8 @@ function AppContent({ sdk }) {
         return <SettingsView />
       case 'search':
         return <SearchView />
+      case 'devicePairing':
+        return <DevicePairingView />
       default:
         return <MainMenu />
     }

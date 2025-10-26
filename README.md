@@ -12,7 +12,13 @@ A production-ready iPod-style music player for the Rabbit R1 device with support
 - Hardware integration (scroll wheel, PTT button)
 - No emojis or placeholders - pure text/symbol interface
 
-### 🎵 Universal Music Aggregation
+### � Auto-Configuration
+- **Automatic URL Detection**: Works on localhost, LAN IP, or production domain
+- No hardcoded URLs - adapts to any environment automatically
+- QR code pairing for zero-typing credential setup
+- One codebase for all deployment scenarios
+
+### �🎵 Universal Music Aggregation
 - **Commercial Services**: Spotify, YouTube Music
 - **FOSS Services**: Jellyfin, Navidrome, Subsonic
 - **Real API Integration**: No fake data, actual service connections
@@ -39,7 +45,36 @@ A production-ready iPod-style music player for the Rabbit R1 device with support
 
 ## 🚀 Quick Start
 
-### Automated Setup (Recommended)
+### One-Command Startup 🎯
+
+The easiest way to run everything for testing:
+
+```bash
+./start-all.sh
+```
+
+This single command will:
+- ✅ Install all dependencies (backend + frontend + pairing client)
+- ✅ Build the frontend applications  
+- ✅ Start the backend server (port 8000)
+- ✅ Start the R1 frontend (port 5173)
+- ✅ Start the pairing web client (port 3000)
+- ✅ Show real-time logs from all services
+
+**Services:**
+- Backend API: http://localhost:8000
+- R1 Frontend: http://localhost:5173
+- Pairing Client: http://localhost:3000
+- API Docs: http://localhost:8000/docs
+
+**To stop everything:**
+```bash
+./stop-all.sh
+```
+
+---
+
+### Automated Setup (Alternative)
 
 ```bash
 # Clone and setup everything automatically

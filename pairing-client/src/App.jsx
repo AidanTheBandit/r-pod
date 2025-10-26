@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
+import { getBackendUrl } from './config';
 import './App.css';
 
 function App() {
@@ -22,8 +23,11 @@ function App() {
       setPairingCode(code.toUpperCase());
     }
 
-    // Connect to Socket.IO
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3451';
+    // Connect to Socket.IO using auto-detected URL
+    const backendUrl = getBackendUrl();
+    
+    console.log('[Pairing Client] Connecting to backend:', backendUrl);
+    
     const newSocket = io(backendUrl, {
       transports: ['websocket', 'polling']
     });

@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react'
 import { backendAPI, updateBackendConfig } from '../services/backendClient'
 import { useServiceStore } from '../store/serviceStore'
 import { useThemeStore } from '../store/themeStore'
+import { useNavigationStore } from '../store/navigationStore'
 import ListView from '../components/ListView'
 import './SettingsView.css'
 
 function SettingsView() {
   const { toggleService, services } = useServiceStore()
   const { theme, setTheme } = useThemeStore()
+  const { navigateTo } = useNavigationStore()
   const [selectedService, setSelectedService] = useState(null)
   const [connecting, setConnecting] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState({})
@@ -123,6 +125,11 @@ function SettingsView() {
   // Main settings menu
   const settingsItems = [
     {
+      id: 'pairDevice',
+      title: 'Pair Device',
+      subtitle: 'Configure credentials from any device',
+    },
+    {
       id: 'theme',
       title: 'Theme',
       subtitle: theme === 'ipod' ? 'iPod (White & Blue)' : 'Rabbit (Black & Orange)',
@@ -135,6 +142,11 @@ function SettingsView() {
   ]
 
   const handleSettingClick = (item) => {
+    if (item.id === 'pairDevice') {
+      // Navigate to device pairing view
+      navigateTo('devicePairing')
+      return
+    }
     setSelectedService(item.id)
   }
 

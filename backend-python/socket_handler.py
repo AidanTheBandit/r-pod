@@ -6,6 +6,7 @@ import socketio
 import logging
 from typing import Dict, Any, Optional
 from pairing_service import pairing_service
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -180,6 +181,25 @@ async def pair_submit(sid, data):
             'channel_id': credentials.get('channel_id'),
             'brand_account_id': credentials.get('brand_account_id')
         }, room=device_socket)
+        
+        # Store credentials on backend for authenticated API calls
+        try:
+            from config import settings
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    f"http://localhost:{settings.port}/api/devices/{pairing.device_id}/credentials",
+                    json={
+                        'cookie': credentials.get('cookie'),
+                        'profile': credentials.get('profile', '0'),
+                        'channel_id': credentials.get('channel_id'),
+                        'brand_account_id': credentials.get('brand_account_id')
+                    },
+                    headers={'X-Server-Password': settings.server_password},
+                    timeout=10.0
+                )
+            logger.info(f"[Pairing] Credentials stored on backend for device {pairing.device_id}")
+        except Exception as e:
+            logger.warning(f"[Pairing] Failed to store credentials on backend: {e}")
         
         # Mark code as used
         pairing_service.mark_code_used(code)
@@ -368,10 +388,16 @@ async def pair_stats(sid):
         await sio.emit('pair_error', {'error': str(e)}, room=sid)
 
 
-# Start pairing service when module loads
-pairing_service.start()
-
-
 def get_socket_app():
     """Get the Socket.IO ASGI app for mounting"""
     return socket_app
+
+
+def start_pairing_service():
+    """Start the pairing service (call from lifespan)"""
+    pairing_service.start()
+
+
+def stop_pairing_service():
+    """Stop the pairing service (call from lifespan)"""
+    pairing_service.stop()

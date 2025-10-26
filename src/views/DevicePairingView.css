@@ -179,6 +179,14 @@
   color: #555;
 }
 
+.url-hint {
+  margin-top: 1.5vh;
+  font-size: 1.4vh;
+  color: #999;
+  font-style: italic;
+  word-break: break-all;
+}
+
 /* Waiting Indicator */
 .waiting-indicator {
   text-align: center;

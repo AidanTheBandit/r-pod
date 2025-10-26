@@ -1,7 +1,8 @@
 import axios from 'axios'
 import Cookies from 'js-cookie'
+import { getBackendUrl, getServerPassword, getDeviceId } from '../config'
 
-// Load saved backend configuration from localStorage, fallback to env vars
+// Load saved backend configuration from localStorage, fallback to env vars or auto-detect
 const loadBackendConfig = () => {
   try {
     const savedConfig = localStorage.getItem('backend-config')
@@ -16,10 +17,10 @@ const loadBackendConfig = () => {
     console.warn('[BackendClient] Failed to load saved backend config:', e)
   }
   
-  // Fallback to environment variables
+  // Auto-detect backend URL and password
   return {
-    url: import.meta.env.VITE_BACKEND_URL || '',
-    password: import.meta.env.VITE_BACKEND_PASSWORD || 'ytm-secure-2025-r1'
+    url: getBackendUrl(),
+    password: getServerPassword()
   }
 }
 
@@ -71,12 +72,19 @@ const initializeClient = () => {
     withCredentials: false // Explicitly disable credentials for CORS
   })
 
-  // Add request interceptor for session ID
+  // Add request interceptor for session ID and device ID
   client.interceptors.request.use((config) => {
+    const sessionId = getSessionId();
+    const deviceId = getDeviceId();
+    
     if (config.params) {
-      config.params.sessionId = getSessionId()
+      config.params.sessionId = sessionId;
+      config.params.device_id = deviceId;
     } else {
-      config.params = { sessionId: getSessionId() }
+      config.params = { 
+        sessionId: sessionId,
+        device_id: deviceId
+      };
     }
     return config
   })

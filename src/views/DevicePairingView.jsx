@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import QRCode from 'qrcode';
+import { getBackendUrl, getPairingUrl, getDeviceId } from '../config';
 import './DevicePairingView.css';
 
 const DevicePairingView = () => {
@@ -15,19 +16,12 @@ const DevicePairingView = () => {
   const [error, setError] = useState('');
   const [socket, setSocket] = useState(null);
 
-  // Get device ID from localStorage or generate new one
-  const getDeviceId = () => {
-    let deviceId = localStorage.getItem('r1_device_id');
-    if (!deviceId) {
-      deviceId = `r1-${Math.random().toString(36).substring(2, 15)}`;
-      localStorage.setItem('r1_device_id', deviceId);
-    }
-    return deviceId;
-  };
-
   useEffect(() => {
-    // Connect to Socket.IO server
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3451';
+    // Connect to Socket.IO server using auto-detected URL
+    const backendUrl = getBackendUrl();
+    
+    console.log('[Pairing] Connecting to backend:', backendUrl);
+    
     const newSocket = io(backendUrl, {
       transports: ['websocket', 'polling'],
       reconnection: true,
@@ -52,9 +46,13 @@ const DevicePairingView = () => {
       setExpiresIn(data.expires_in);
       setStatus('waiting');
 
-      // Generate QR code
-      try {
-        const pairingUrl = data.pairing_url || `https://pair.r-pod.app/?code=${data.code}`;
+      // Generate QR code using auto-detected pairing URL
+      try{
+        const pairingClientUrl = getPairingUrl();
+        const pairingUrl = `${pairingClientUrl}/?code=${data.code}`;
+        
+        console.log('[Pairing] QR code URL:', pairingUrl);
+        
         const qrUrl = await QRCode.toDataURL(pairingUrl, {
           width: 200,
           margin: 2,
@@ -199,11 +197,12 @@ const DevicePairingView = () => {
             <div className="pairing-instructions">
               <h4>How to pair:</h4>
               <ol>
-                <li>Visit <strong>pair.r-pod.app</strong> on any device</li>
+                <li>Visit pairing client on any device</li>
                 <li>Enter the code: <strong>{pairingCode}</strong></li>
                 <li>Follow the setup wizard</li>
                 <li>Your R1 will auto-configure!</li>
               </ol>
+              <p className="url-hint">Pairing URL: {getPairingUrl()}</p>
             </div>
 
             <div className="waiting-indicator">

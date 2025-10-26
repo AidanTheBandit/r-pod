@@ -19,7 +19,8 @@ from config import settings
 from services.youtube_music_aggregator import YouTubeMusicAggregator
 from services.spotify_aggregator import SpotifyAggregator
 from services.audio_streaming_service_v3 import AudioStreamingService
-from socket_handler import get_socket_app
+from services.ytm_streaming_service import YTMStreamingService
+from socket_handler import get_socket_app, start_pairing_service, stop_pairing_service
 
 # Configure logging
 logging.basicConfig(
@@ -34,6 +35,12 @@ sessions: Dict[str, Dict[str, Any]] = {}
 
 # Audio streaming service (initialized at startup)
 audio_streaming_service = None
+
+# YTM streaming service for enhanced features
+ytm_streaming_service = None
+
+# Store device credentials (keyed by device_id)
+device_credentials: Dict[str, Dict[str, Any]] = {}
 
 
 # Pydantic models
@@ -54,7 +61,7 @@ class SessionInfo(BaseModel):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events"""
-    global audio_streaming_service
+    global audio_streaming_service, ytm_streaming_service
     
     # Startup
     logger.info("=" * 60)
@@ -95,10 +102,21 @@ async def lifespan(app: FastAPI):
     )
     logger.info("✓ Audio streaming service initialized with InnerTube API")
     
+    # Initialize YTM streaming service for enhanced features
+    if youtube_music_aggregator and youtube_music_aggregator.ytm:
+        ytm_streaming_service = YTMStreamingService(youtube_music_aggregator.ytm)
+        logger.info("✓ YTM streaming service initialized (search, lyrics, transcription)")
+    
+    # Start pairing service
+    start_pairing_service()
+    logger.info("✓ Pairing service started")
+    
     yield
     
     # Shutdown
     logger.info("Shutting down...")
+    stop_pairing_service()
+    logger.info("✓ Pairing service stopped")
 
 
 # Create FastAPI app
@@ -819,6 +837,244 @@ async def stream_youtube(
     except Exception as e:
         logger.error(f"[Stream] Error: {e}", exc_info=True)
         raise HTTPException(503, f"Streaming service unavailable: {str(e)}")
+
+
+# ======================
+# YTM Enhanced Endpoints
+# ======================
+
+@app.get("/api/ytm/search")
+async def ytm_search(
+    q: str = Query(..., min_length=1),
+    limit: int = Query(20, ge=1, le=50),
+    device_id: Optional[str] = Query(None),
+    authenticated: bool = Depends(verify_password)
+):
+    """Enhanced YouTube Music search with better formatting"""
+    try:
+        # Use device credentials if available
+        ytm_service = ytm_streaming_service
+        
+        if device_id and device_id in device_credentials:
+            creds = device_credentials[device_id]
+            # Create temporary service with device credentials
+            from ytmusicapi import YTMusic
+            ytm_api = YTMusic(auth=creds.get('cookie'))
+            ytm_service = YTMStreamingService(ytm_api)
+        
+        if not ytm_service:
+            raise HTTPException(503, "YouTube Music service not available")
+        
+        tracks = await ytm_service.search(q, limit)
+        return {"tracks": {"items": tracks}}
+        
+    except Exception as e:
+        logger.error(f"[YTM Search] Error: {e}")
+        raise HTTPException(500, str(e))
+
+
+@app.get("/api/ytm/track/{video_id}")
+async def ytm_get_track(
+    video_id: str,
+    device_id: Optional[str] = Query(None),
+    authenticated: bool = Depends(verify_password)
+):
+    """Get track info and streaming URL"""
+    try:
+        ytm_service = ytm_streaming_service
+        
+        if device_id and device_id in device_credentials:
+            creds = device_credentials[device_id]
+            from ytmusicapi import YTMusic
+            ytm_api = YTMusic(auth=creds.get('cookie'))
+            ytm_service = YTMStreamingService(ytm_api)
+        
+        if not ytm_service:
+            raise HTTPException(503, "YouTube Music service not available")
+        
+        track_info = await ytm_service.get_track_info(video_id)
+        return track_info
+        
+    except Exception as e:
+        logger.error(f"[YTM Track] Error: {e}")
+        raise HTTPException(500, str(e))
+
+
+@app.get("/api/ytm/recommendations/{video_id}")
+async def ytm_get_recommendations(
+    video_id: str,
+    limit: int = Query(20, ge=1, le=50),
+    device_id: Optional[str] = Query(None),
+    authenticated: bool = Depends(verify_password)
+):
+    """Get song recommendations based on a video"""
+    try:
+        ytm_service = ytm_streaming_service
+        
+        if device_id and device_id in device_credentials:
+            creds = device_credentials[device_id]
+            from ytmusicapi import YTMusic
+            ytm_api = YTMusic(auth=creds.get('cookie'))
+            ytm_service = YTMStreamingService(ytm_api)
+        
+        if not ytm_service:
+            raise HTTPException(503, "YouTube Music service not available")
+        
+        tracks = await ytm_service.get_recommendations(video_id, limit)
+        return {"tracks": tracks}
+        
+    except Exception as e:
+        logger.error(f"[YTM Recommendations] Error: {e}")
+        raise HTTPException(500, str(e))
+
+
+@app.get("/api/ytm/lyrics/{video_id}")
+async def ytm_get_lyrics(
+    video_id: str,
+    device_id: Optional[str] = Query(None),
+    authenticated: bool = Depends(verify_password)
+):
+    """Get lyrics (cached or triggers transcription)"""
+    try:
+        ytm_service = ytm_streaming_service
+        
+        if device_id and device_id in device_credentials:
+            creds = device_credentials[device_id]
+            from ytmusicapi import YTMusic
+            ytm_api = YTMusic(auth=creds.get('cookie'))
+            ytm_service = YTMStreamingService(ytm_api)
+        
+        if not ytm_service:
+            raise HTTPException(503, "YouTube Music service not available")
+        
+        lyrics = await ytm_service.get_lyrics(video_id)
+        return lyrics
+        
+    except Exception as e:
+        logger.error(f"[YTM Lyrics] Error: {e}")
+        raise HTTPException(500, str(e))
+
+
+@app.post("/api/ytm/lyrics/{video_id}/transcribe")
+async def ytm_transcribe_lyrics(
+    video_id: str,
+    device_id: Optional[str] = Query(None),
+    authenticated: bool = Depends(verify_password)
+):
+    """Transcribe lyrics using Whisper AI"""
+    try:
+        ytm_service = ytm_streaming_service
+        
+        if device_id and device_id in device_credentials:
+            creds = device_credentials[device_id]
+            from ytmusicapi import YTMusic
+            ytm_api = YTMusic(auth=creds.get('cookie'))
+            ytm_service = YTMStreamingService(ytm_api)
+        
+        if not ytm_service:
+            raise HTTPException(503, "YouTube Music service not available")
+        
+        result = await ytm_service.transcribe_lyrics(video_id)
+        return result
+        
+    except Exception as e:
+        logger.error(f"[YTM Transcribe] Error: {e}")
+        raise HTTPException(500, str(e))
+
+
+@app.get("/api/ytm/thumbnail/{video_id}")
+async def ytm_get_thumbnail(
+    video_id: str,
+    authenticated: bool = Depends(verify_password)
+):
+    """Get valid thumbnail URL"""
+    try:
+        ytm_service = ytm_streaming_service
+        
+        if not ytm_service:
+            # Fallback to default
+            return {"thumbnail_url": f'https://i.ytimg.com/vi/{video_id}/hqdefault.jpg'}
+        
+        thumbnail_url = await ytm_service.get_thumbnail(video_id)
+        return {"thumbnail_url": thumbnail_url}
+        
+    except Exception as e:
+        logger.error(f"[YTM Thumbnail] Error: {e}")
+        return {"thumbnail_url": f'https://i.ytimg.com/vi/{video_id}/hqdefault.jpg'}
+
+
+@app.post("/api/devices/{device_id}/credentials")
+async def store_device_credentials(
+    device_id: str,
+    credentials: Dict[str, Any] = Body(...),
+    authenticated: bool = Depends(verify_password)
+):
+    """Store credentials for a device (called after pairing)"""
+    try:
+        logger.info(f"[Credentials] Storing credentials for device {device_id}")
+        
+        # Validate credentials
+        if not credentials.get('cookie'):
+            raise HTTPException(400, "Cookie is required")
+        
+        # Store credentials
+        device_credentials[device_id] = {
+            'cookie': credentials.get('cookie'),
+            'profile': credentials.get('profile', '0'),
+            'channel_id': credentials.get('channel_id'),
+            'brand_account_id': credentials.get('brand_account_id'),
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        logger.info(f"[Credentials] ✓ Stored credentials for device {device_id}")
+        
+        return {
+            "success": True,
+            "message": "Credentials stored successfully",
+            "device_id": device_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[Credentials] Error: {e}")
+        raise HTTPException(500, str(e))
+
+
+@app.get("/api/devices/{device_id}/credentials")
+async def get_device_credentials(
+    device_id: str,
+    authenticated: bool = Depends(verify_password)
+):
+    """Get stored credentials for a device"""
+    if device_id not in device_credentials:
+        raise HTTPException(404, "Device credentials not found")
+    
+    creds = device_credentials[device_id]
+    
+    # Return sanitized version (no full cookie)
+    return {
+        "device_id": device_id,
+        "has_cookie": bool(creds.get('cookie')),
+        "profile": creds.get('profile'),
+        "channel_id": creds.get('channel_id'),
+        "brand_account_id": creds.get('brand_account_id'),
+        "timestamp": creds.get('timestamp')
+    }
+
+
+@app.delete("/api/devices/{device_id}/credentials")
+async def delete_device_credentials(
+    device_id: str,
+    authenticated: bool = Depends(verify_password)
+):
+    """Delete stored credentials for a device"""
+    if device_id in device_credentials:
+        del device_credentials[device_id]
+        logger.info(f"[Credentials] Deleted credentials for device {device_id}")
+        return {"success": True, "message": "Credentials deleted"}
+    
+    raise HTTPException(404, "Device credentials not found")
 
 
 # Mount Socket.IO for device pairing
