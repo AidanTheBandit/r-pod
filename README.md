@@ -103,25 +103,40 @@ npm run host-both
 - Service aggregators: Real API integrations for each service
 - Settings view: Actual service connection management
 
-## � Documentation
+## 📚 Documentation
 
+- **[PAIRING_SYSTEM.md](./PAIRING_SYSTEM.md)** - Easy device pairing system (NEW!)
 - **[SECURITY.md](./SECURITY.md)** - Security guide and credential management
 - **[ENV_SETUP_GUIDE.md](./ENV_SETUP_GUIDE.md)** - Detailed environment configuration
 - **[API_KEYS_REFERENCE.md](./API_KEYS_REFERENCE.md)** - API keys and authentication reference
 - **[SELF_HOSTING_GUIDE.md](./SELF_HOSTING_GUIDE.md)** - Production deployment guide
 
-## �🔧 Service Configuration
+##  Configuration Methods
 
-⚠️ **IMPORTANT:** Never commit `.env` files or `headers_auth.json` to version control. See [SECURITY.md](./SECURITY.md) for details.
+### Method 1: Device Pairing (Recommended) ⭐
 
-### YouTube Music (Required)
+The easiest way to configure your R1 - no manual .env editing required!
+
+1. **On R1 Device:**
+   - Open Settings → Device Pairing
+   - Note the 6-character code displayed
+
+2. **On Phone/Computer:**
+   - Visit the pairing URL or scan QR code
+   - Enter the pairing code
+   - Paste your YouTube Music cookie
+   - Select your account
+   - Click "Pair Device"
+
+3. **Done!** Your R1 auto-configures itself.
+
+See [PAIRING_SYSTEM.md](./PAIRING_SYSTEM.md) for details.
+
+### Method 2: Manual Configuration
+
+For advanced users or when pairing isn't available.
 
 See [ENV_SETUP_GUIDE.md](./ENV_SETUP_GUIDE.md) for detailed setup instructions.
-
-**Quick Setup:**
-1. **Get Cookie**: Open Chrome → YouTube Music → DevTools → Network → Copy `cookie` header
-2. **Configure**: Add to `backend-python/.env`
-3. **Test**: Run account debugging to find correct profile
 
 #### YouTube Bot Protection Setup (Required - October 2025)
 

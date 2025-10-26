@@ -19,6 +19,7 @@ from config import settings
 from services.youtube_music_aggregator import YouTubeMusicAggregator
 from services.spotify_aggregator import SpotifyAggregator
 from services.audio_streaming_service_v3 import AudioStreamingService
+from socket_handler import get_socket_app
 
 # Configure logging
 logging.basicConfig(
@@ -818,6 +819,10 @@ async def stream_youtube(
     except Exception as e:
         logger.error(f"[Stream] Error: {e}", exc_info=True)
         raise HTTPException(503, f"Streaming service unavailable: {str(e)}")
+
+
+# Mount Socket.IO for device pairing
+app.mount("/socket.io", get_socket_app())
 
 
 if __name__ == "__main__":
